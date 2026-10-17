@@ -1,0 +1,2520 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>KNN 交互式自学教程 · K近邻算法可视化实验室</title>
+<style>
+:root{
+  /* 配色以 Radix Colors（radix-ui/colors）的 12 级色阶为基准，只取冷色族：
+     蓝=结构/主色，青=需思考/从样本，紫=聚焦对象（查询点与近邻高亮），绿=正向，红=类别 A/风险。
+     原先的琥珀色（#9a6b00/#fdf5e3）与金色（#6e56cf）与冷色主调冲突，已全部替换。 */
+  --navy:#0b2a4a; --navy-2:#123a63; --blue:#0d74ce; --blue-2:#0090ff; --blue-soft:#e6f4fe;
+  /* 标题三级色：与正文的冷灰明显拉开色相与明度（章=深藏青 → 小节=结构蓝 → 子标题=中蓝）*/
+  --h2c:#0d3a68; --h3c:#0f4c81; --h4c:#1d5c96;
+  --ink:#2f4157; --ink-2:#46596f; --ink-3:#5c6b7f; --ink-4:#5f6b7d;   /* 正文改为冷灰（不再是"黑"）；三级弱文字对白底：--ink-3 ≈5.3:1、--ink-4 ≈5.4:1，均达 WCAG AA */
+  /* 阴影三级：贴地层 + 扩散层。用于表达"这是个盒子 / 这个盒子可交互"，替代左侧色条 */
+  --sh-1:0 1px 2px rgba(16,42,74,.05);
+  --sh-card:0 1px 2px rgba(16,42,74,.05),0 14px 30px -26px rgba(11,42,74,.55);
+  --sh-pop:0 2px 5px -1px rgba(16,42,74,.07),0 20px 40px -26px rgba(11,42,74,.45);
+  --bg:#f2f5f9; --card:#ffffff; --line:#d9e1ec; --line-2:#eef2f8;
+  --red:#ce2c31; --red-2:#e5484d; --red-soft:#feebec;   /* Radix red-11 / red-9 / red-3 */
+  --green:#218358; --green-soft:#e6f6eb;   /* Radix green-11 / green-3 */
+  --think:#008573; --think-soft:#e0f8f3;   /* Radix teal-11 / teal-3：需思考 / 从样本 */
+  --focus-mark:#6e56cf; --focus-mark-2:#6550b9; --focus-soft:#f4f0fe;   /* Radix violet-9 / violet-11 / violet-3：聚焦对象 */
+  --code-bg:#0c1623; --code-fg:#d7e3f2; --code-line:#1d2b3e;
+  --mono:ui-monospace,SFMono-Regular,Consolas,"Cascadia Mono","Menlo",monospace;
+
+  /* ===== 设计尺度（Design Tokens）=====
+     收敛前：23 种字号 / 10 种圆角 / 4 种动效时长混用（典型的"没有统一尺度"）。
+     收敛后：字号 9 级（v1.2 新增 h4 一级，此前 h4 与正文同号导致层级看不出）、圆角 5 级、
+     阴影 3 级、动效 3 级 + 缓动 2 种，每级都有明确角色。
+     完整规格见 outputs/design-tokens.md；改动前请先读那份文档。 */
+  --fs-hero:34px;    /* 仅首屏 H1 */
+  --fs-h2:26px;      /* 章标题 */
+  --fs-h3:20px;      /* 小节标题 */
+  --fs-h4:17.5px;    /* 子标题（新增一级：此前 = 正文号，层级不可辨）*/
+  --fs-num:21px;     /* 数字读数（指标卡/大数字）*/
+  --fs-lg:16px;      /* 正文 */
+  --fs-md:15px;      /* 表格、次要正文 */
+  --fs-sm:13.6px;    /* 控件、提示、小标签 */
+  --fs-xs:12.4px;    /* 徽章、角标、行内小字 */
+  --r-xs:6px; --r-sm:9px; --r-md:12px; --radius:14px; --r-pill:20px;
+  --dur-fast:.2s; --dur-mid:.35s; --dur-slow:.55s; --dur-sheen:9s;
+  --ease-out:cubic-bezier(.2,.72,.2,1); --ease-std:ease;
+  /* 动效强度上限：柔光透明度不得超过 0.10（浅色学术页的可读性红线）*/
+  --spot-a:.09; --spot-size:240px; --rim-a:.55;
+  --focus:0 0 0 3px rgba(47,127,209,.35);
+}
+*{box-sizing:border-box}
+html{scroll-behavior:smooth}
+body{
+  margin:0; background:var(--bg); color:var(--ink);
+  font-family:-apple-system,BlinkMacSystemFont,"Segoe UI","PingFang SC","Microsoft YaHei",system-ui,sans-serif;
+  font-size:var(--fs-lg); line-height:1.78;
+}
+h1,h2,h3,h4{line-height:1.35;margin:0}
+a{color:var(--blue);text-decoration:none}
+a:hover{text-decoration:underline}
+code{font-family:var(--mono);font-size:.92em}
+p code,li code,td code{background:#eef3fa;border:1px solid #dde7f4;border-radius:var(--r-xs);padding:1px 5px;color:#14406e}
+td b,td strong{display:inline}
+
+/* ---------- reading progress ---------- */
+#progress{position:fixed;top:0;left:0;height:3px;width:0;background:linear-gradient(90deg,var(--blue-2),#5eb1ef);z-index:60}
+
+/* ---------- hero ---------- */
+.hero{
+  background:radial-gradient(1200px 420px at 18% -30%,#1c5a97 0%,transparent 60%),
+             linear-gradient(135deg,#08213b 0%,#0b2a4a 45%,#10365c 100%);
+  color:#eaf2fb; padding:44px 20px 34px; border-bottom:1px solid #0a1f36;
+}
+.hero-inner{max-width:1200px;margin:0 auto;display:grid;grid-template-columns:1fr 268px;gap:34px;align-items:center}
+.hero h1{font-size:var(--fs-hero);letter-spacing:.4px;color:#fff}
+.hero .sub{margin:10px 0 0;color:#b9d1ea;font-size:var(--fs-md);max-width:760px}
+.hero .chips{margin-top:18px;display:flex;flex-wrap:wrap;gap:8px}
+.chip{font-size:var(--fs-xs);padding:4px 11px;border-radius:var(--r-pill);background:rgba(255,255,255,.10);border:1px solid rgba(255,255,255,.20);color:#dce9f7}
+.chip b{color:#fff}
+.hero-stats{margin-top:20px;display:flex;gap:26px;flex-wrap:wrap}
+.stat .n{font-size:var(--fs-h2);font-weight:700;color:#fff;font-family:var(--mono)}
+.stat .l{font-size:var(--fs-xs);color:#9fbdd9;letter-spacing:.5px}
+.hero-card{background:rgba(255,255,255,.06);border:1px solid rgba(255,255,255,.16);border-radius:var(--radius);padding:14px}
+.hero-card .t{font-size:var(--fs-xs);color:#a9c6e2;letter-spacing:.8px;margin-bottom:8px;text-transform:uppercase}
+#heroCanvas{width:100%;height:150px;display:block;border-radius:var(--r-sm);background:#071c31}
+
+/* ---------- layout ---------- */
+.shell{max-width:1200px;margin:0 auto;padding:30px 20px 90px;display:grid;grid-template-columns:238px 1fr;gap:30px;align-items:start}
+.toc{position:sticky;top:18px;background:var(--card);border:1px solid var(--line);border-radius:var(--radius);padding:16px 14px;font-size:var(--fs-sm);max-height:calc(100vh - 40px);overflow:auto}
+.toc .toc-t{font-size:var(--fs-xs);letter-spacing:1.4px;color:var(--ink-3);text-transform:uppercase;margin:0 0 10px 6px}
+.toc a{display:block;color:var(--ink-2);padding:7px 9px;border-radius:8px;transition:background var(--dur-fast),box-shadow var(--dur-fast)}
+.toc a:hover{background:var(--blue-soft);text-decoration:none;color:var(--navy)}
+/* 子项（2.1 / 3.2 …）相对章级条目缩进，层级一眼可辨 */
+.toc a[href*="-"]{padding-left:20px}
+.toc a.active{background:var(--blue-soft);color:var(--navy);font-weight:600;
+  box-shadow:inset 0 0 0 1px #bcdcfb,0 3px 8px -4px rgba(13,116,206,.55)}
+.toc .g{margin:10px 0 4px 10px;font-size:var(--fs-xs);color:var(--ink-4);letter-spacing:1px}
+/* 目录滚动条：不再使用浏览器默认样式（评审指出的打磨项）*/
+.toc{scrollbar-width:thin;scrollbar-color:var(--line) transparent}
+.toc::-webkit-scrollbar{width:8px}
+.toc::-webkit-scrollbar-thumb{background:var(--line);border-radius:var(--r-sm)}
+.toc::-webkit-scrollbar-track{background:transparent}
+main{min-width:0}
+
+/* ---------- chapter cards ---------- */
+.chapter{background:var(--card);border:1px solid var(--line);border-radius:var(--radius);padding:30px 34px;margin-bottom:26px;
+  box-shadow:var(--sh-card)}
+.chapter > h2{font-size:var(--fs-h2);color:var(--h2c);font-weight:700;letter-spacing:.3px;
+  display:flex;align-items:center;gap:12px;flex-wrap:wrap;padding-bottom:13px;border-bottom:2px solid var(--line-2);margin-bottom:8px}
+.chapter > h2 .num{font-family:var(--mono);font-size:var(--fs-md);background:var(--navy);color:#fff;border-radius:var(--r-sm);padding:3px 10px}
+/* v1.2：取消小节标题的 4px 左侧色条（页面里 27 处左条是"看着累"的主因之一），
+   改用"字号 + 字重 + 专属标题色"建立层级 */
+h3{font-size:var(--fs-h3);color:var(--h3c);font-weight:700;letter-spacing:.2px;margin:32px 0 12px}
+h4{font-size:var(--fs-h4);color:var(--h4c);font-weight:700;margin:22px 0 9px}
+p{margin:11px 0}
+ul,ol{margin:10px 0;padding-left:24px}
+li{margin:5px 0}
+.lead{color:var(--ink-2);font-size:var(--fs-lg)}
+.tag{font-size:var(--fs-xs);font-weight:600;padding:3px 10px;border-radius:var(--r-pill);letter-spacing:.5px}
+.tag.lv1{background:#e6f6eb;color:#218358;border:1px solid #adddc0}
+.tag.lv2{background:#e6f4fe;color:#0d74ce;border:1px solid #acd8fc}
+.tag.lv3{background:#e0f8f3;color:#008573;border:1px solid #a1ded2}
+.tag.lv4{background:#f4f0fe;color:#6550b9;border:1px solid #d4cafe}
+
+/* ---------- callouts ---------- */
+.note,.warn,.good,.quote{border-radius:var(--r-md);padding:14px 17px;margin:16px 0;font-size:var(--fs-lg);line-height:1.76}
+.note{background:var(--blue-soft);border:1px solid #d3e6f8;box-shadow:var(--sh-1),0 14px 26px -22px rgba(13,116,206,.55)}
+.warn{background:var(--red-soft);border:1px solid #f8cdce;box-shadow:var(--sh-1),0 14px 26px -22px rgba(206,44,49,.50)}
+.good{background:var(--green-soft);border:1px solid #cbe8d6;box-shadow:var(--sh-1),0 14px 26px -22px rgba(33,131,88,.50)}
+.quote{background:#f8fafd;border:1px solid var(--line);color:var(--ink-2);box-shadow:var(--sh-1),0 14px 26px -24px rgba(11,42,74,.50)}
+.note b,.warn b,.good b{color:var(--navy)}
+.formula{background:#f7f9fc;border:1px dashed #b9bbc6;border-radius:var(--r-sm);padding:12px 16px;margin:12px 0;
+  font-family:var(--mono);font-size:var(--fs-md);color:var(--navy);overflow-x:auto;white-space:nowrap}
+.formula .lbl{color:var(--ink-3);font-size:var(--fs-sm);font-family:inherit;display:block;margin-bottom:4px;white-space:normal}
+
+/* ---------- tables ---------- */
+.tw{overflow-x:auto;margin:14px 0}
+table{border-collapse:collapse;width:100%;font-size:var(--fs-md);min-width:520px}
+th,td{border:1px solid var(--line);padding:10px 12px;text-align:center;vertical-align:middle;
+  text-wrap:balance;        /* 折行时两行长度尽量均衡 → 视觉对称（短内容居中、长内容两行等长）*/
+  word-break:keep-all;      /* 不在汉字之间断开：换行点只落在标点/空格上，避免"实验室 4（…）/实验室"这种把"实验室 5"劈开的切法 */
+  line-break:strict;        /* 行首禁则：；，。、）】》等不能出现在行首 → "…你好呀；"的分号留在上一行末 */
+  overflow-wrap:break-word; /* 兜底：整串都放不下时（超长英文 token / 无标点长句）才允许强行断行 */
+  /* 单元格水平、垂直方向一律居中，且内容允许折行（2026-10-12 改版：取消"折行内容左对齐"例外）*/}
+th{background:#eef3fa;color:var(--navy);font-weight:600;text-align:center;vertical-align:middle}
+/* 表格不设左对齐例外：水平 / 垂直一律居中，内容过长时按 overflow-wrap 折行 */
+/* 首列（多为"维度/方法/项目"这类短标签列）给最小宽度，避免被挤成一字一行 */
+th:first-child,td:first-child{min-width:104px}
+tbody tr:nth-child(even){background:#fafcfe}
+td code{white-space:normal;word-break:normal;overflow-wrap:break-word}
+/* 公式类单元格：整串不可断（断在括号/运算符后会留下 ") "、"− x" 这种孤字行）。
+   仅用于"纯符号 + 无标点"的公式单元，长中文单元格一律不用。*/
+td.nw,th.nw{white-space:nowrap}
+
+/* ---------- code blocks ---------- */
+.codeblock{background:var(--code-bg);border:1px solid #16263c;border-radius:var(--r-md);margin:16px 0;overflow:hidden}
+.code-head{display:flex;align-items:center;justify-content:space-between;gap:10px;padding:8px 12px 8px 14px;
+  background:#101f33;border-bottom:1px solid var(--code-line)}
+.code-head .lang{font-family:var(--mono);font-size:var(--fs-sm);color:#9fc0e4;letter-spacing:.6px}
+.code-head .kind{font-size:var(--fs-xs);color:#7f9dc0;border:1px solid #27405c;border-radius:var(--r-pill);padding:2px 9px;margin-right:auto;margin-left:10px}
+.copy{background:#1b3149;border:1px solid #2c4a6c;color:#bcd4ee;border-radius:var(--r-xs);font-size:var(--fs-xs);padding:3px 10px;cursor:pointer}
+.copy:hover{background:#24405f}
+pre{margin:0;padding:15px 16px;overflow-x:auto}
+pre code{font-family:var(--mono);font-size:var(--fs-sm);line-height:1.72;color:var(--code-fg);white-space:pre}
+.tk-kw{color:#78c6ff;font-weight:600}
+.tk-st{color:#9ee493}
+.tk-cm{color:#6d8399;font-style:italic}
+.tk-nu{color:#ffca7a}
+.out{background:#071322;border:1px solid #16263c;border-radius:var(--r-sm);padding:12px 14px;font-family:var(--mono);
+  font-size:var(--fs-sm);color:#a8e6c0;white-space:pre-wrap;min-height:44px;margin:10px 0 0}
+
+/* ---------- lab panels ---------- */
+.lab{background:linear-gradient(180deg,#fbfdff,#f3f7fc);border:1px solid #cfdcec;border-radius:var(--radius);
+  padding:20px 22px;margin:22px 0;box-shadow:var(--sh-pop)}
+.lab-head{display:flex;align-items:center;gap:10px;flex-wrap:wrap;margin-bottom:6px}
+.lab-head .h{font-weight:700;color:var(--navy);font-size:var(--fs-lg)}
+.lab-head .badge{font-size:var(--fs-xs);background:#e4eefb;color:#17558f;border:1px solid #cddff3;border-radius:var(--r-pill);padding:2px 10px}
+/* 键盘可达性：统一焦点环。此前 --focus token 定义了却从未使用（外部评审发现的缺口）*/
+a:focus-visible,button:focus-visible,input:focus-visible,summary:focus-visible,[tabindex]:focus-visible{
+  outline:none;box-shadow:var(--focus);border-radius:var(--r-sm)}
+/* ===== 文字微动效（悬停放大感）=====
+   实现要点：JS 只给可交互文字包一层 .hz span，放大作用在 span 上（transform 不触发布局重排）；
+   正文段落一律不加，避免阅读干扰。关闭系统动效时自动失效。 */
+.hz{display:inline-block;transform-origin:left center;transition:transform var(--dur-fast) var(--ease-out)}
+.toc a:hover .hz{transform:scale(1.035)}
+.btn:hover .hz{transform:scale(1.045)}
+.chip:hover .hz{transform:scale(1.06)}
+details > summary:hover .hz{transform:scale(1.02)}
+.tag:hover .hz,.copy:hover .hz{transform:scale(1.05)}
+.lab-use{font-size:var(--fs-sm);color:var(--ink-2);margin:4px 0 12px}
+.lab-grid{display:grid;grid-template-columns:minmax(0,1.25fr) minmax(220px,.85fr);gap:16px;align-items:stretch}
+.lab-grid > canvas{align-self:center}   /* 左列若只有画布（实验室 4/5），画布在行内垂直居中，不留底部大空白 */
+/* 左列 = 画布 + 与画布直接相关的读数/判定卡（v1.4）：两列高度因此接近，不再出现"画布下方一大片空白" */
+.stage{display:flex;flex-direction:column;gap:12px;min-width:0}
+.stage-label{font-size:var(--fs-sm);color:var(--ink-3);margin:0 0 -4px}
+.lab-grid.two{grid-template-columns:1fr 1fr}
+canvas.screen{width:100%;display:block;background:#fff;border:1px solid #b9cbe0;border-radius:var(--r-md);cursor:crosshair;touch-action:none}
+.ctrl{background:#fff;border:1px solid var(--line);border-radius:var(--r-md);padding:12px 14px}
+.ctrl + .ctrl{margin-top:12px}
+.row{display:flex;align-items:center;gap:9px;flex-wrap:wrap}
+.row label{font-size:var(--fs-sm);color:var(--ink-2)}
+input[type=range]{-webkit-appearance:none;appearance:none;width:100%;height:5px;border-radius:var(--r-xs);background:#dbe5f1;outline:none;margin:8px 0}
+input[type=range]::-webkit-slider-thumb{-webkit-appearance:none;width:19px;height:19px;border-radius:50%;
+  background:var(--blue);border:3px solid #fff;box-shadow:0 1px 5px rgba(13,60,110,.45);cursor:pointer}
+input[type=range]::-moz-range-thumb{width:15px;height:15px;border-radius:50%;background:var(--blue);border:3px solid #fff;cursor:pointer}
+.btn{background:var(--blue);color:#fff;border:1px solid #17518f;border-radius:var(--r-sm);padding:7px 13px;font-size:var(--fs-sm);cursor:pointer;font-family:inherit}
+.btn:hover{background:#1a68b8}
+.btn.ghost{background:#fff;color:var(--navy);border:1px solid #c3d3e6}
+.btn.ghost:hover{background:#eef4fb}
+.btn.warnbtn{background:#fff;color:var(--red);border:1px solid #eec7c1}
+.btn.warnbtn:hover{background:var(--red-soft)}
+.btn.on{background:var(--navy);border-color:#0a2540}
+.btn:disabled{opacity:.5;cursor:not-allowed}
+.mono{font-family:var(--mono)}
+.kv{display:flex;justify-content:space-between;gap:10px;font-size:var(--fs-sm);padding:5px 0;border-bottom:1px dashed var(--line-2)}
+.kv:last-child{border-bottom:none}
+.kv .k{color:var(--ink-3)}
+.kv .v{font-family:var(--mono);color:var(--navy);font-weight:600}
+.pill{display:inline-flex;align-items:center;gap:6px;font-size:var(--fs-sm);padding:3px 10px;border-radius:var(--r-pill);border:1px solid var(--line)}
+.pill.a{background:var(--red-soft);color:var(--red);border-color:#fdbdbe}
+.pill.b{background:var(--blue-soft);color:var(--blue);border-color:#acd8fc}
+.dot{width:10px;height:10px;border-radius:50%;display:inline-block}
+.dot.a{background:var(--red-2)}
+.dot.b{background:var(--blue-2)}
+.votebar{margin:7px 0}
+.votebar .top{display:flex;justify-content:space-between;font-size:var(--fs-sm);color:var(--ink-2);margin-bottom:3px}
+.votebar .track{height:11px;background:#e6edf6;border-radius:var(--r-xs);overflow:hidden}
+.votebar .fill{height:100%;width:0;transition:width var(--dur-mid);border-radius:var(--r-xs)}
+.votebar .fill.a{background:linear-gradient(90deg,var(--red-2),#f08a76)}
+.votebar .fill.b{background:linear-gradient(90deg,var(--blue),#79b0ea)}
+/* 平局横幅：v1→v2 改写 token 时这条规则的"选择器"被吞进了 .votebar .fill，导致横幅没有底色/内边距 —— 已修复 */
+.tie{background:var(--red-soft);border:1px solid #f0c8c2;color:#a33427;border-radius:var(--r-md);
+  padding:12px 15px;font-size:var(--fs-md);line-height:1.72;margin-top:12px;display:none;
+  box-shadow:var(--sh-1),0 14px 26px -22px rgba(206,44,49,.50)}
+.tie b{color:#8f1d24}
+.tie.show{display:block}
+.verdict{font-size:var(--fs-md);font-weight:700;padding:9px 12px;border-radius:var(--r-sm);border:1px solid var(--line);background:#fff;text-align:center;margin-top:10px}
+.verdict.a{color:var(--red);border-color:#fdbdbe;background:var(--red-soft)}
+.verdict.b{color:var(--blue);border-color:#acd8fc;background:var(--blue-soft)}
+.legend{display:flex;gap:14px;flex-wrap:wrap;font-size:var(--fs-sm);color:var(--ink-2);margin-top:9px}
+.legend span{display:flex;align-items:center;gap:6px}
+.metric{display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-top:12px}
+.metric .m{background:#fff;border:1px solid var(--line);border-radius:var(--r-md);padding:10px 12px}
+.metric .m .t{font-size:var(--fs-xs);color:var(--ink-3);letter-spacing:.4px}
+.metric .m .n{font-family:var(--mono);font-size:var(--fs-num);color:var(--navy);font-weight:700}
+.metric .m .s{font-size:var(--fs-xs);color:var(--ink-3)}
+.bars{margin-top:12px}
+.bars .b{margin:9px 0}
+.bars .b .top{display:flex;justify-content:space-between;font-size:var(--fs-sm);color:var(--ink-2)}
+.bars .b .track{height:14px;background:#e6edf6;border-radius:var(--r-sm);overflow:hidden;margin-top:3px}
+.bars .b .fill{height:100%;width:0;transition:width var(--dur-slow);border-radius:var(--r-xs)}
+.bars .b .fill.grey{background:linear-gradient(90deg,#8a97a8,#c2cbd8)}
+.bars .b .fill.navy{background:linear-gradient(90deg,var(--navy),#3d7ab8)}
+/* .hint：同样被合并吞掉了选择器（页面里 14 处在用）—— 已修复 */
+.hint{font-size:var(--fs-sm);color:var(--ink-3);margin-top:8px}
+
+/* ---------- interview cards / questions ---------- */
+details.qa{background:#fff;border:1px solid var(--line);border-radius:var(--r-md);padding:0;margin:10px 0;overflow:hidden}
+details.qa > summary{cursor:pointer;padding:13px 16px;font-weight:600;color:var(--navy);font-size:var(--fs-lg);list-style:none;
+  display:flex;gap:9px;align-items:flex-start;background:#f8fbff}
+details.qa > summary::-webkit-details-marker{display:none}
+details.qa > summary::before{content:"Q";display:inline-flex;align-items:center;justify-content:center;min-width:22px;height:22px;
+  background:var(--navy);color:#fff;border-radius:var(--r-xs);font-size:var(--fs-xs);font-family:var(--mono);margin-top:2px}
+details.qa[open] > summary{background:var(--blue-soft)}
+details.qa .body{padding:13px 17px 17px;border-top:1px solid var(--line-2);font-size:var(--fs-lg);line-height:1.76}
+details.q{background:#fbfdff;border:1px solid #cfe3e0;border-radius:var(--r-md);padding:0;margin:14px 0;overflow:hidden;
+  box-shadow:var(--sh-1),0 14px 26px -22px rgba(0,133,115,.55)}
+details.q > summary{cursor:pointer;padding:13px 16px;font-weight:600;color:var(--ink);font-size:var(--fs-lg)}
+/* 强调只留在左侧色条与悬停态，正文保持深色（评审意见：整行彩字长读易疲劳、且像超链接）*/
+details.q > summary:hover{color:var(--think)}
+details.q .body{padding:12px 17px 16px;border-top:1px solid var(--line-2);color:var(--ink-2);font-size:var(--fs-lg);line-height:1.76;background:#fff}
+.miss{background:var(--think-soft);border:1px solid #bfe6df;border-radius:var(--r-sm);padding:12px 15px;font-size:var(--fs-lg);
+  line-height:1.76;color:var(--ink);margin:12px 0;box-shadow:var(--sh-1),0 12px 22px -20px rgba(0,133,115,.55)}
+.miss b{color:#056355}
+.check{display:flex;gap:10px;align-items:flex-start;padding:9px 0;border-bottom:1px dashed var(--line-2);font-size:var(--fs-lg)}
+.check input{margin-top:5px}
+footer{background:var(--navy);color:#c3d8ee;padding:26px 20px 34px;font-size:var(--fs-sm)}
+footer .in{max-width:1200px;margin:0 auto;display:flex;justify-content:space-between;gap:20px;flex-wrap:wrap}
+footer b{color:#fff}
+@media (max-width:960px){
+  .shell{grid-template-columns:1fr;gap:16px}
+  .toc{position:static;max-height:none;order:2}
+  .hero-inner{grid-template-columns:1fr}
+  .lab-grid,.lab-grid.two{grid-template-columns:1fr}
+  .chapter{padding:20px 17px}
+}
+</style>
+<style>
+/* =========================================================================
+   设计理念借鉴声明（非代码复制）
+   思路来源：React Bits（github.com/DavidHDev/react-bits, MIT + Commons Clause）
+   借鉴的 5 条理念，全部用零依赖的原生 CSS/JS 重写，未复制其任何代码：
+     ① 视觉层与行为层分离：JS 只写 CSS 变量，效果全部由 CSS 绘制
+     ② 叠加层架构：绝对定位 + pointer-events:none + border-radius:inherit
+     ③ 浅色背景必须降强度（其 light 主题 fill 仅 0.28，而非 dark 的 1.0）
+     ④ 指针跟随要做惯性平滑（lerp），而不是硬跳
+     ⑤ 只在进入视口时触发一次（IntersectionObserver，once）
+   刻意不采纳：粒子/极光背景、磁吸按钮、3D 倾斜卡片、文字乱序打字机、
+             外部动画库（motion/GSAP）——会与教学画布争夺注意力、拖慢加载、
+             并让正文难以 Ctrl+F 检索。
+   ========================================================================= */
+:root{ --spot-size:240px; --spot-a:.09; --rim-a:.55; }
+/* 注意：不要在这里写 position:relative —— 它会把 .toc 的 position:sticky 覆盖掉（真实踩过的 bug）*/
+.lab.spot, .hero-card.spot{ position:relative; }
+.spot{ isolation:isolate; }
+.spot::before{
+  content:""; position:absolute; inset:0; border-radius:inherit; pointer-events:none; z-index:0;
+  background:radial-gradient(var(--spot-size) var(--spot-size) at var(--mx,50%) var(--my,50%),
+    rgba(47,127,209,var(--spot-a)) 0%, rgba(47,127,209,0) 68%);
+  opacity:0; transition:opacity var(--dur-mid);
+}
+.spot.spot-on::before{ opacity:1; }
+.spot > *{ position:relative; z-index:1; }
+/* 1px 渐变描边：用 mask-composite 抠出边框环（React Bits 的 rim 思路，浅色降强度） */
+.rim::after{
+  content:""; position:absolute; inset:0; border-radius:inherit; pointer-events:none; padding:1px;
+  background:linear-gradient(135deg, rgba(47,127,209,var(--rim-a)) 0%, rgba(47,127,209,0) 46%, rgba(11,42,74,.28) 100%);
+  -webkit-mask:linear-gradient(#000 0 0) content-box, linear-gradient(#000 0 0);
+  -webkit-mask-composite:xor;
+  mask:linear-gradient(#000 0 0) content-box exclude, linear-gradient(#000 0 0);
+  opacity:0; transition:opacity var(--dur-mid);
+}
+.rim:hover::after{ opacity:1; }
+/* 滚动入场：类名由 JS 添加，若 JS 未执行则内容永远可见（渐进增强，不藏内容） */
+.rv{ opacity:0; transform:translateY(14px);
+  transition:opacity var(--dur-slow); }
+.rv.in{ opacity:1; transform:none; }
+/* 标题流光（gradient text）已按吸收的设计规范移除 —— 命中反模式 tell-list #1
+   「gradient text without a personality reason」：学术文档的标题靠字重和留白建立层级，
+   不需要装饰性动效；同时它还会让标题在 Ctrl+F / 无障碍读取时更难识别。 */
+/* @keyframes sheen 已随渐变标题一并移除 */
+/* 微交互：主按钮加一层极淡的斜向光带（GlareHover 思路，只用于主按钮） */
+.btn{ position:relative; overflow:hidden; }
+.btn::after{
+  content:""; position:absolute; top:-60%; left:-30%; width:40%; height:220%;
+  background:linear-gradient(90deg, rgba(255,255,255,0), rgba(255,255,255,.22), rgba(255,255,255,0));
+  transform:translateX(-120%) rotate(18deg); pointer-events:none;
+  transition:transform var(--dur-slow);
+}
+.btn:hover::after{ transform:translateX(320%) rotate(18deg); }
+.btn.ghost::after,.btn.warnbtn::after{ background:linear-gradient(90deg, rgba(47,127,209,0), rgba(47,127,209,.18), rgba(47,127,209,0)); }
+/* 无障碍：尊重系统的"减少动态效果" */
+@media print{ .rv{ opacity:1 !important; transform:none !important; }  }
+@media (prefers-reduced-motion: reduce){
+  .rv{ opacity:1 !important; transform:none !important; transition:none !important; }
+  .spot::before,.rim::after{ transition:none !important; opacity:0 !important; }
+  .hz{ transform:none !important; transition:none !important; }
+  .btn::after{ display:none !important; }
+}
+</style>
+</head>
+<body>
+<div id="progress"></div>
+
+<header class="hero">
+  <div class="hero-inner">
+    <div>
+      <h1>KNN 交互式自学教程</h1>
+      <p class="sub">K近邻（K-Nearest Neighbors）算法 · 面向计算机专业本科机器学习课程。不只教调库：从"物以类聚"到惰性学习、距离度量、K 值与平局、KD-Tree 与近似最近邻检索，配 6 个可动手的交互实验室。</p>
+      <div class="chips">
+        <span class="chip"><b>4</b> 个学习层级</span>
+        <span class="chip"><b>5</b> 章正文</span>
+        <span class="chip"><b>6</b> 个交互模块</span>
+        <span class="chip"><b>6</b> 段完整代码</span>
+        <span class="chip"><b>5</b> 道思考题</span>
+        <span class="chip">纯前端 · 单文件 · 双击即用</span>
+      </div>
+      <div class="hero-stats">
+        <div class="stat"><div class="n">O(1)</div><div class="l">训练复杂度</div></div>
+        <div class="stat"><div class="n">O(nd)</div><div class="l">预测复杂度</div></div>
+        <div class="stat"><div class="n">3</div><div class="l">核心要素</div></div>
+      </div>
+    </div>
+    <div class="hero-card">
+      <div class="t">3 秒直觉 · K=3 现场投票</div>
+      <canvas id="heroCanvas" width="520" height="300"></canvas>
+      <div class="hint" id="heroHint" style="color:#9fbdd9">测试点自动游走，实时找出 3 个最近邻居并计数投票。</div>
+    </div>
+  </div>
+</header>
+
+<div class="shell">
+  <nav class="toc" id="toc">
+    <p class="toc-t">目录导航</p>
+    <a href="#ch0">0 · 阅读地图</a>
+    <div class="g">入门基础层</div>
+    <a href="#ch1">1 · 什么是 K 近邻</a>
+    <div class="g">原理深入层</div>
+    <a href="#ch2-1">2.1 · 距离度量</a>
+    <a href="#ch2-2">2.2 · 特征尺度</a>
+    <a href="#ch2-3">2.3 · K 值的选择</a>
+    <a href="#ch2-4">2.4 · 决策规则</a>
+    <a href="#ch2-5">2.5 · 加权 KNN</a>
+    <div class="g">工程实践层</div>
+    <a href="#ch3-1">3.1 · 算法流程</a>
+    <a href="#ch3-2">3.2 · 手写伪代码</a>
+    <a href="#ch3-3">3.3 · JS 模拟可运行</a>
+    <a href="#ch3-4">3.4 · sklearn 实现</a>
+    <a href="#ch3-5">3.5 · 工程痛点</a>
+    <div class="g">进阶思考层</div>
+    <a href="#ch4-1">4.1 · 优点</a>
+    <a href="#ch4-2">4.2 · 缺点</a>
+    <a href="#ch4-3">4.3 · 工业取舍</a>
+    <a href="#ch4-4">4.4 · 面试考点</a>
+    <a href="#ch4-5">4.5 · 向量检索延伸</a>
+    <div class="g">作业配套</div>
+    <a href="#ch5-1">5.1 · 分层小结</a>
+    <a href="#ch5-2">5.2 · 课后思考题</a>
+    <a href="#ch5-3">5.3 · 自评量表</a>
+    <a href="#appx">附录 · 纠错表 / 术语</a>
+  </nav>
+
+  <main>
+
+  <section class="chapter" id="ch0">
+    <h2><span class="num">00</span> 阅读地图：这份网页教程怎么用</h2>
+    <p class="lead">本页与 Markdown 文稿 <b>章节一一对应</b>：第 1 章入门 → 第 2 章原理 → 第 3 章工程 → 第 4 章进阶 → 第 5 章作业配套。所有交互模块都嵌在它对应的章节里，读到哪儿动手到哪儿。</p>
+    <div class="tw"><table>
+      <thead><tr><th>层级</th><th>章节</th><th>要解决的问题</th><th>动手内容</th></tr></thead>
+      <tbody>
+        <tr><td><span class="tag lv1">入门层</span></td><td>第1章</td><td>KNN 是什么？为什么说它"不训练"？</td><td>实验室 1：鼠标游走看 1-NN 的 Voronoi 边界</td></tr>
+        <tr><td><span class="tag lv2">原理层</span></td><td>第2章</td><td>距离怎么算？K 怎么选？平局怎么办？</td><td>实验室 2（等距球）<br>实验室 3（K 值·投票·平局）</td></tr>
+        <tr><td><span class="tag lv3">工程层</span></td><td>第3章</td><td>怎么实现？慢在哪？坑在哪？</td><td>实验室 4（量纲对照）<br>实验室 5（暴力 vs KD-Tree）</td></tr>
+        <tr><td><span class="tag lv4">进阶层</span></td><td>第4章</td><td>什么时候用？什么时候绝不能用？</td><td>面试问答卡自测，思考题折叠自查</td></tr>
+      </tbody>
+    </table></div>
+    <div class="note"><b>建议节奏</b>：快速通关 1.5 小时（第1章 → 2.3 → 3.1/3.4 → 4.6 → 思考题 Q1、Q2）；完整学习 4～6 小时（全章 + 把实验室 3 和 5 玩透 + 手写一遍 3.3 的代码）。</div>
+  </section>
+
+  <section class="chapter" id="ch1">
+    <h2><span class="num">01</span> KNN 入门：什么是 K 近邻 <span class="tag lv1">入门基础层</span></h2>
+
+    <h3>1.1 生活化类比：物以类聚</h3>
+    <p>你搬进新小区，想知道一家没去过的餐馆好不好吃。最自然的做法是：看看离你最近的几家常去餐馆评价如何——如果最近的几家都不错，你倾向于认为这家也不错。</p>
+    <p>再比如手里拿着一颗没见过的水果，根据大小、颜色、硬度找几个"最像的"已知水果：最像的三个里如果有三个都是橙子，那就判断它是橙子。</p>
+    <div class="quote">这些例子里藏着一个共同的假设：<b>相似的输入，会产生相似的输出。</b>这就是 KNN 唯一的、也是全部的核心假设（统计学习里称为"局部平滑假设"）。KNN 不去学习一个全局公式，而是<b>在预测时现场询问最近的邻居</b>。</div>
+    <p>于是 KNN 的所有问题最后都归结为两件事：<b><br>①怎么定义"相似"</b>（距离度量，见 2.1）<b><br>②问几个邻居、怎么采信它们的意见</b>（K 值与决策规则，见 2.3 / 2.4）。</p>
+
+    <h3>1.2 核心思想：一句话定义</h3>
+    <p>给定带标签训练集 D = {(x₁, y₁), …, (xₙ, yₙ)}，其中 xᵢ 是 d 维特征向量，yᵢ 是标签。对新样本 x：</p>
+    <ol>
+      <li>在训练集中找出与 x <b>距离最近的 K 个样本</b>，记为邻居集合 N<sub>K</sub>(x)；</li>
+      <li>用这 K 个邻居的标签决定输出：<b>分类</b>取多数投票，<b>回归</b>取（加权）平均。</li>
+    </ol>
+    <div class="formula"><span class="lbl">分类（多数投票）与回归（均值）</span>ŷ = argmax<sub>c</sub> Σ<sub>i∈N<sub>K</sub>(x)</sub> I(y<sub>i</sub> = c)　　　ŷ = (1/K) Σ<sub>i∈N<sub>K</sub>(x)</sub> y<sub>i</sub></div>
+    <p>其中 I(·) 是指示函数（条件成立取 1，否则取 0）。如果把公式读成中文，就是："在 K 个邻居里，哪个类别出现次数最多，就判给哪个类别。"</p>
+    <div class="note"><b>KNN 三要素</b>（李航《统计学习方法》的标准表述，考试常考）：<b>距离度量</b>（谁算邻居）、<b>K 值的选择</b>（问几个邻居）、<b>分类决策规则</b>（怎么合并邻居的意见）。</div>
+
+    <h3>1.3 惰性学习（Lazy Learning）：KNN 最重要的身份标签</h3>
+    <div class="warn"><b>先把这句话背准（本科考试与面试的高频点）：</b>KNN <b>拥有训练数据集</b>，只是<b>不存在显式的训练（参数估计）过程</b>。训练阶段只做一件事——把数据存起来；所有计算（算距离、排序、选邻居、投票）都被推迟到预测阶段执行。这就是"惰性"：把计算延迟到真正需要的时候。</div>
+    <div class="tw"><table>
+      <thead><tr><th>说法</th><th>判定</th><th>为什么</th></tr></thead>
+      <tbody>
+        <tr><td>KNN 不需要训练数据</td><td style="color:#ce2c31;font-weight:600">×</td><td>它不需要训练<i>过程</i>，但预测时必须保留全部（或索引后的）训练数据。数据就是模型</td></tr>
+        <tr><td>KNN 训练快所以整体更省</td><td style="color:#ce2c31;font-weight:600">×</td><td>训练 O(1)，但单次预测 O(nd)。省下的训练时间会在<b>每一次</b>预测时反复付出</td></tr>
+        <tr><td>KD-Tree 用来加速 KNN 训练</td><td style="color:#ce2c31;font-weight:600">×</td><td>KD-Tree 是查询索引：增加训练期建树开销，降低预测期搜索开销（见 3.5.2）</td></tr>
+      </tbody>
+    </table></div>
+    <h4>惰性学习 vs 积极学习（Eager Learning）</h4>
+    <div class="tw"><table>
+      <thead><tr><th>对比维度</th><th>惰性学习（KNN）</th><th>积极学习（线性/逻辑回归、决策树、SVM、神经网络）</th></tr></thead>
+      <tbody>
+        <tr><td>训练阶段</td><td>只存储，O(1)（用 KD-Tree 索引时是例外）</td><td>优化损失函数、估计参数，开销大</td></tr>
+        <tr><td>预测阶段</td><td>与（至少一部分）训练样本逐一比较，慢</td><td>一次前向计算或少量比较，快</td></tr>
+        <tr><td>"模型"是什么</td><td><b>模型 = 训练集本身</b>（非参数化，规模随数据增长）</td><td>参数规模固定；训练完可丢弃数据（SVM 只留支持向量）</td></tr>
+        <tr><td>新数据到来</td><td>直接加入即可，天然增量</td><td>通常需要重新训练</td></tr>
+        <tr><td>可解释性</td><td>局部解释："因为和这 5 个样本相似"</td><td>全局解释：系数、规则</td></tr>
+        <tr><td>知识是否被压缩</td><td>不压缩，占内存</td><td>被压缩进参数或树结构</td></tr>
+      </tbody>
+    </table></div>
+    <p><b>为什么计算机专业学生必须理解"惰性"？</b>因为它决定了 KNN 的工程命运：复杂度在训练与推理两个阶段之间"搬家"，而线上服务最怕推理昂贵。<b>KNN 适合离线批处理与中小规模在线服务，不适合大规模高 QPS 在线推理</b>——这一条结论会一直用到第 4 章的技术选型。</p>
+
+    <h3>1.4 KNN 做分类 与 KNN 做回归</h3>
+    <div class="tw"><table>
+      <thead><tr><th></th><th>KNN 分类</th><th>KNN 回归</th></tr></thead>
+      <tbody>
+        <tr><td>标签类型</td><td>离散类别</td><td>连续数值</td></tr>
+        <tr><td>决策规则</td><td>多数投票（可加权）</td><td>均值 / 中位数 / 加权平均</td></tr>
+        <tr><td>例子</td><td>按身高、体重、步频判断运动项目<br>按纹理特征判断产品是否缺陷</td><td>按面积、距市中心距离、房龄估计房价</td></tr>
+        <tr><td>输出范围</td><td>训练集出现过的类别</td><td><b>必然落在 K 个邻居标签的最小值与最大值之间</b></td></tr>
+        <tr><td>结构性限制</td><td>类别不平衡时偏向多数类</td><td><b>无法外推</b>：趋势、超出训练值域的预测都表达不了</td></tr>
+      </tbody>
+    </table></div>
+    <div class="warn"><b>关于"无法外推"</b>：这是 KNN 回归的硬伤，调参救不了。因为它输出的是邻居标签的（加权）平均，数学上不可能超出邻居标签的取值区间。需要趋势/外推的任务，请换线性模型或梯度提升树。</div>
+
+    <h3>1.5 一个可以手算的二维例子</h3>
+    <p>训练集（6 个样本，两类标签 A / B）：</p>
+    <div class="tw"><table>
+      <thead><tr><th>编号</th><th>x⁽¹⁾</th><th>x⁽²⁾</th><th>标签</th><th>到测试点 (2.0, 2.0) 的距离</th></tr></thead>
+      <tbody>
+        <tr><td>1</td><td>1.0</td><td>1.1</td><td>A</td><td class="nw">√(1.00 + 0.81) = <b>1.345</b></td></tr>
+        <tr><td>2</td><td>1.2</td><td>0.9</td><td>A</td><td class="nw">√(0.64 + 1.21) = <b>1.360</b></td></tr>
+        <tr><td>3</td><td>1.6</td><td>1.5</td><td>A</td><td class="nw">√(0.16 + 0.25) = <b>0.640</b></td></tr>
+        <tr><td>4</td><td>3.1</td><td>2.9</td><td>B</td><td class="nw">√(1.21 + 0.81) = <b>1.421</b></td></tr>
+        <tr><td>5</td><td>3.3</td><td>3.4</td><td>B</td><td class="nw">√(1.69 + 1.96) = <b>1.910</b></td></tr>
+        <tr><td>6</td><td>2.9</td><td>3.2</td><td>B</td><td class="nw">√(0.81 + 1.44) = <b>1.500</b></td></tr>
+      </tbody>
+    </table></div>
+    <p>距离升序：3(0.640, A) → 1(1.345, A) → 2(1.360, A) → 4(1.421, B) → 6(1.500, B) → 5(1.910, B)。于是：</p>
+    <ul>
+      <li><b>K = 1</b>：最近邻是编号 3 → 预测 <b>A</b></li>
+      <li><b>K = 3</b>：{3, 1, 2} → A : B = 3 : 0 → 预测 <b>A</b></li>
+      <li><b>K = 5</b>：{3, 1, 2, 4, 6} → A : B = 3 : 2 → 预测 <b>A</b></li>
+      <li><b>K = 6</b>：全部样本 → A : B = 3 : 3 → <b style="color:#ce2c31">平局！</b>取决于平局策略（见 2.3）</li>
+    </ul>
+    <p>这个只有 6 个点的例子已经暴露三个关键事实：<b>K 会改变结论</b>、<b>K 较大时票数可能相等</b>、<b>"平局"不是理论吹毛求疵，而是必然出现的边界情况</b>。</p>
+
+    <div class="lab">
+      <div class="lab-head"><span class="h">@_@ 实验室 1</span><span class="badge">K=1 决策区域 · Voronoi</span><span class="badge">鼠标移动即可预测</span></div>
+      <p class="lab-use">把鼠标在画布上移动：虚线表示"最近的训练样本"，半透明底色是该点会被判成的类别。当 K=1 时，整个平面被切成若干 Voronoi 单元——这就是最原始的 KNN 决策边界。</p>
+      <div class="lab-grid">
+                <div class="stage">
+          <canvas class="screen" id="lab1" width="640" height="420"></canvas>
+          <div class="ctrl">
+            <div class="kv"><span class="k">光标位置</span><span class="v" id="l1-pos">--</span></div>
+            <div class="kv"><span class="k">最近邻编号 / 距离</span><span class="v" id="l1-nn">--</span></div>
+            <div class="kv"><span class="k">1-NN 预测</span><span class="v" id="l1-pred">--</span></div>
+            <div class="legend"><span><i class="dot a"></i>类别 A</span><span><i class="dot b"></i>类别 B</span><span><i class="dot" style="background:#6e56cf"></i>光标</span></div>
+          </div>
+        </div>
+        <div>
+          <div class="ctrl">
+            <div class="row"><button class="btn" id="l1-reset">重新采样样本点</button><button class="btn ghost" id="l1-region">显示/隐藏决策区域</button></div>
+            <div class="hint">拖不动鼠标？按住并拖动也行；触屏设备用手指滑动。</div>
+          </div>
+          <div class="note" style="font-size:var(--fs-sm)"><b>观察点</b>：把光标放在两类交界处缓慢移动，你会看到预测类别突然"跳变"——这个突变位置的集合就是决策边界。K=1 的边界完全由样本点位置决定，因此对噪声极其敏感。</div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <section class="chapter" id="ch2-1">
+    <h2><span class="num">02</span> KNN 核心原理拆解 <span class="tag lv2">原理深入层</span></h2>
+
+    <h3>2.1 距离度量：KNN 的"相似"到底怎么定义</h3>
+    <p>KNN 里"相似"不是形容词，而是一个函数 d(x, z)。换一个距离函数，就等于换了一个"世界里的几何"，最近邻可能直接换人。设两个样本 x, z ∈ ℝ<sup>d</sup>：</p>
+    <div class="formula"><span class="lbl">① 欧氏距离 Euclidean / L2 —— 闵可夫斯基 p=2 的特例</span>d₂(x, z) = √( Σ<sub>j=1</sub><sup>d</sup> (x<sub>j</sub> − z<sub>j</sub>)² )</div>
+    <div class="formula"><span class="lbl">② 曼哈顿距离 Manhattan / 城市街区 / L1 —— p=1</span>d₁(x, z) = Σ<sub>j=1</sub><sup>d</sup> |x<sub>j</sub> − z<sub>j</sub>|</div>
+    <div class="formula"><span class="lbl">③ 闵可夫斯基距离 Minkowski / Lp —— 统一形式</span>d<sub>p</sub>(x, z) = ( Σ<sub>j=1</sub><sup>d</sup> |x<sub>j</sub> − z<sub>j</sub>|<sup>p</sup> )<sup>1/p</sup>,　p ≥ 1</div>
+    <div class="formula"><span class="lbl">④ 切比雪夫距离 Chebyshev / L∞ —— p → ∞ 的极限</span>d<sub>∞</sub>(x, z) = max<sub>j</sub> |x<sub>j</sub> − z<sub>j</sub>|</div>
+    <div class="formula"><span class="lbl">⑤ 余弦相似度与余弦距离 —— 文本 / embedding 检索主力</span>cos(x, z) = (x · z) / (‖x‖₂ ‖z‖₂)　　d<sub>cos</sub>(x, z) = 1 − cos(x, z)</div>
+    <p>余弦只看<b>方向</b>、忽略<b>长度</b>：两篇都在讲"算法"的文档，一篇更啰嗦（词频整体更大），方向接近但长度不同，余弦仍判定高度相似。此外还有<b>汉明距离</b>（对应位置取值不同的维数，用于二值/类别编码）和<b>马氏距离</b> d<sub>Ma</sub>(x, z) = √((x−z)<sup>T</sup> Σ<sup>−1</sup> (x−z))——它相当于"先去相关、再统一尺度，然后算欧氏距离"，代价是要估计并求逆协方差矩阵（O(d³) 量级）。</p>
+
+    <h4>等距线的几何直觉（理解 L1/L2 差异的钥匙）</h4>
+    <p>把"到原点距离等于 1"的所有点画出来：L2 的等距面是<b>圆</b>（各方向等价），L1 是<b>菱形</b>（沿轴走便宜、斜着走贵），L∞ 是<b>正方形</b>（只关心最大的一维偏差，其余维度"免费"）。直接后果有两个：</p>
+    <ul>
+      <li><b>L2 会把单维大偏差平方放大</b>，所以对离群维度敏感；L1 只按绝对差线性累加，<b>更稳健（robust）</b>，实测中常表现为更抗噪的邻居选择。</li>
+      <li>L1 下的决策边界常出现沿轴折线（菱形角点的痕迹），L2 下的边界更平滑。</li>
+    </ul>
+
+    <div class="lab">
+      <div class="lab-head"><span class="h">@_@ 实验室 2</span><span class="badge">单位球形状</span><span class="badge">度量决定谁当邻居</span></div>
+      <p class="lab-use">切换度量：看"到中心点距离等于 1"的等距线形状如何变化，以及同一批样本里最近的三个邻居如何被重新排序。右侧给出中心点到固定点 P(1, 1) 的三种距离数值。</p>
+      <div class="lab-grid">
+                <div class="stage">
+          <canvas class="screen" id="lab2" width="640" height="420"></canvas>
+          <div class="ctrl">
+            <div class="kv"><span class="k">当前度量</span><span class="v" id="l2-metric">L2</span></div>
+            <div class="kv"><span class="k">Q 到 P(1,1) 的 L2</span><span class="v" id="l2-d2">--</span></div>
+            <div class="kv"><span class="k">Q 到 P(1,1) 的 L1</span><span class="v" id="l2-d1">--</span></div>
+            <div class="kv"><span class="k">Q 到 P(1,1) 的 L∞</span><span class="v" id="l2-dinf">--</span></div>
+            <div class="kv"><span class="k">最近 3 个邻居</span><span class="v" id="l2-nn">--</span></div>
+          </div>
+        </div>
+        <div>
+          <div class="ctrl">
+            <div class="row">
+              <button class="btn on" data-metric="l2">欧氏 L2</button>
+              <button class="btn ghost" data-metric="l1">曼哈顿 L1</button>
+              <button class="btn ghost" data-metric="linf">切比雪夫 L∞</button>
+            </div>
+            <div class="hint">三种度量的单位球面积/形状不同 → 对"偏差"的惩罚方式不同。</div>
+            <input type="range" id="l2-cx" min="0" max="100" value="62">
+            <div class="hint">上方的滑块可以水平移动中心点，观察 3 个最近邻是否换人。</div>
+          </div>
+          <div class="note" style="font-size:var(--fs-sm)"><b>记住这个结论</b>：距离度量是模型的"世界观"。换度量而不换数据、不换 K，预测结果就会变。工程上改度量比调 K 的影响更大。</div>
+        </div>
+      </div>
+    </div>
+
+    <h4>什么时候选哪种距离</h4>
+    <div class="tw"><table>
+      <thead><tr><th>场景</th><th>推荐</th><th>理由</th></tr></thead>
+      <tbody>
+        <tr><td>常规连续特征、量纲已统一、快速基线</td><td>欧氏 L2</td><td>sklearn 默认；几何直观；KD-Tree / Ball-Tree 都支持</td></tr>
+        <tr><td>数值特征含明显离群或重尾、想更稳健</td><td>曼哈顿 L1</td><td>不平方放大单维大偏差，对异常维度更鲁棒</td></tr>
+        <tr><td>文本 TF-IDF<br>稀疏高维<br>embedding 检索</td><td>余弦距离</td><td>方向即语义；文档长度不应被当作"不相似"</td></tr>
+        <tr><td>二值 / one-hot 特征为主</td><td>汉明、杰卡德</td><td>关心"匹配位数/交集比例"，欧氏在稀疏二值上含义模糊</td></tr>
+        <tr><td>特征强相关、量纲不齐，想一次到位</td><td>马氏距离</td><td>同时消除相关性与尺度差异<br>代价是估计协方差，O(d³)</td></tr>
+        <tr><td>业务上各维度重要性不同</td><td>加权欧氏 或 度量学习</td><td>把先验知识/学习结果写进距离本身</td></tr>
+      </tbody>
+    </table></div>
+    <div class="warn"><b>三个实战坑</b>：<br>① <b>余弦距离 ≠ 免标准化</b>：整体缩放不改变余弦，但<i>逐维</i>缩放会改变方向向量，通常仍需标准化或显式 L2 归一化。<br>② <b>度量与索引结构必须兼容</b>：sklearn 中 <code>metric='manhattan'</code> 可用 <code>kd_tree</code>；而 <code>metric='cosine'</code> <b>不能</b>配 <code>algorithm='kd_tree'</code>（KD-Tree 的划分与剪枝依赖欧氏几何），只能 <code>brute</code> 或 <code>ball_tree</code>，写错直接抛错。<br>③ <b>不要在未统一尺度的数据上比较"哪种距离更好"</b>——那时你比较的是量纲，不是几何。</div>
+  </section>
+
+  <section class="chapter" id="ch2-2">
+    <h3>2.2 特征尺度：一个能毁掉整个模型的细节</h3>
+    <p>构造一个必然发生的反例：特征 ① = 年收入（单位：元，取值 30000～300000），特征 ② = 年龄（取值 20～60）。样本甲（收入 50000，年龄 30）、样本乙（收入 52000，年龄 50）：</p>
+    <div class="formula">d = √( (52000 − 50000)² + (50 − 30)² ) = √(4,000,000 + 400) ≈ 2000.1</div>
+    <p>年龄的贡献是 √400 = 20，收入的贡献约 2000：<b>年龄这一维对距离的影响被压到约 1%</b>。如果业务问题恰恰是"找出年龄相仿的人"，模型会完全无视年龄，只按收入找邻居。</p>
+    <div class="warn">这不是"可能有点偏差"，而是<b>数学上的必然</b>：特征 j 对距离的贡献量级由其数值范围决定。范围大 10^k 倍的维度，贡献量级就大 10^k 倍。只要有一维量级压倒其余维度，欧氏距离就退化为<b>单维距离</b>，K 再怎么调也没用。</div>
+
+    <h4>归一化 vs 标准化：必须严格区分的两个概念</h4>
+    <div class="tw"><table>
+      <thead><tr><th></th><th>min-max 归一化 Normalization</th><th>Z-score 标准化 Standardization</th></tr></thead>
+      <tbody>
+        <tr><td>公式</td><td class="nw">x' = (x − x<sub>min</sub>) / (x<sub>max</sub> − x<sub>min</sub>)</td><td>x' = (x − μ) / σ　（μ、σ 来自<b>训练集</b>）</td></tr>
+        <tr><td>结果范围</td><td>映射到 [0, 1]，<b>有界</b></td><td>均值 0、标准差 1，<b>无界</b></td></tr>
+        <tr><td>保留了啥</td><td>保留原始分布形状</td><td>保留"偏离均值多少个标准差"的相对位置</td></tr>
+        <tr><td>对离群值</td><td><b>敏感</b>：单个极端值拉大分母，把其余点挤到一小段区间</td><td>相对稳健（极端离群仍会拉偏 μ、σ）</td></tr>
+        <tr><td>新数据</td><td>超出训练集范围时映射后可能越界（&lt;0 或 &gt;1）</td><td>不越界，只是得到较大的 |x'|</td></tr>
+        <tr><td>典型适用</td><td>需要固定区间的场合：图像像素 /255、有明确物理边界、有界评分</td><td>特征近似正态或长尾、量纲差异大；<b>距离类算法（KNN）、SVM、PCA、线性模型的默认选择</b></td></tr>
+        <tr><td>主要缺点</td><td>被离群值压扁后损失特征分辨率</td><td>隐含假设"用均值和标准差概括分布"合理，极度偏斜时打折</td></tr>
+      </tbody>
+    </table></div>
+    <p><b>怎么选（实用规则）</b>：分布接近对称 → Z-score；取值有明确边界且需要固定区间 → min-max；有明显离群值 → 优先 Z-score，离群严重时用<b>稳健缩放</b>（中位数 + IQR）；不确定就都试，用交叉验证比结果，别凭直觉。</p>
+    <p><b>不该做标准化的场合</b>：树模型（决策树/随机森林/GBDT 不基于距离，标准化无收益）；稀疏文本特征 + 余弦距离（Z-score 减均值会破坏稀疏性，内存可能爆炸，此时常用 L2 归一化）；已经是 0/1 的二值特征（min-max 后仍是 0/1，做了等于没做）。</p>
+
+    <h4>工程铁律：防止数据泄漏（Data Leakage）</h4>
+    <div class="codeblock">
+      <div class="code-head"><span class="lang">python</span><span class="kind">正误对照</span><button class="copy">复制</button></div>
+      <pre><code># 错误：在全量数据上 fit，验证集的均值/方差泄漏进了训练过程，CV 分数虚高、不可信
+X_scaled = StandardScaler().fit_transform(X)
+scores = cross_val_score(KNeighborsClassifier(), X_scaled, y, cv=5)
+
+# 正确：缩放器写进 Pipeline，交叉验证时它只在每一折的“训练部分”上 fit
+pipe = Pipeline([
+    ("scaler", StandardScaler()),
+    ("knn", KNeighborsClassifier(n_neighbors=5)),
+])
+scores = cross_val_score(pipe, X, y, cv=5)</code></pre>
+    </div>
+    <div class="note"><b>为什么这条铁律这么重要？</b>因为它是"作业分数虚高、上线立刻翻车"的头号原因。缩放参数是可学习的统计量（μ、σ、min、max），它们一旦看过验证集/测试集，评估结果就不再代表真实泛化能力。</div>
+    <p>→ 下面的<b>实验室 4</b>（在 3.5.3）会把这件事放大给你看：同一批点、同一个查询点，只切换"是否标准化"，预测类别可能直接翻转。</p>
+  </section>
+
+  <section class="chapter" id="ch2-3">
+    <h3>2.3 K 值的选择：KNN 唯一的"主超参数"</h3>
+    <div class="tw"><table>
+      <thead><tr><th>K 取值</th><th>模型行为</th><th>偏差-方差</th><th>结果</th></tr></thead>
+      <tbody>
+        <tr><td>K = 1</td><td>决策边界由各训练点的 Voronoi 单元拼成，极度曲折</td><td>偏差极低<br>方差极高</td><td><b>过拟合</b>的极端形式：训练误差≈0，但一个噪声点能"割出"一整块错误区域，泛化差</td></tr>
+        <tr><td>中等 K</td><td>边界被平滑，局部结构仍保留</td><td>平衡</td><td>通常最优，由交叉验证决定</td></tr>
+        <tr><td>K 很大（接近 n）</td><td>邻居集合覆盖大半数据集，近似一个粗略的全局模型</td><td>偏差高<br>方差低</td><td><b>欠拟合</b>。极端 K = n：分类恒为多数类，回归恒为全局均值，完全忽略 x</td></tr>
+      </tbody>
+    </table></div>
+    <div class="quote"><b>面试标准答案</b>：K 是控制模型复杂度的"平滑参数"，作用类似核密度估计里的带宽。K 减小 → 模型更复杂、更贴训练数据、更易过拟合；K 增大 → 更平滑、更保守、更易欠拟合。所以 K 必须用交叉验证选。经验起点 K ≈ √n 只是<b>启发式</b>，不是定理。</div>
+
+    <h4>为什么要取奇数 —— 以及奇数为什么不够</h4>
+    <p><b>奇数成立的前提非常窄</b>：只有"<b>二分类</b> + <b>等权多数投票</b>"时，K = 2m+1 的两类票数之和为奇数、不可能相等，平局才被"参数化地"消除。<b>三种反例</b>：<br>① <b>多分类</b>：K=5 时三类票数可能是 2 : 2 : 1，仍是平局<br>② <b>加权投票</b>：权重是实数，奇偶毫无作用<br>③ <b>距离并列</b>：存在重复样本或浮点误差时，"谁进前 K 个邻居"本身就是平局。</p>
+    <div class="tw"><table>
+      <thead><tr><th>平局处理方案</th><th>做法</th><th>优点</th><th>代价 / 风险</th></tr></thead>
+      <tbody>
+        <tr><td>① 取奇数 K</td><td>二分类下从参数层面消除平局</td><td>最简单、零成本</td><td>只对二分类 + 等权投票有效</td></tr>
+        <tr><td>② 最近邻优先</td><td>并列类别中选"其中最近的那个邻居"的类别<br>或扩大 K 直到有人先过半</td><td>有几何依据：更近 = 更相似</td><td>实现略复杂；扩大 K 会引入更远邻居</td></tr>
+        <tr><td>③ 加权投票（1/d）</td><td>整数票换成实数权重，几乎总能分出高下</td><td>常能顺带提升精度（<b>须自己用 CV 确认</b>，见 2.5）</td><td>权重仍可能完全相等，需兜底</td></tr>
+        <tr><td>④ 类别先验 / 业务优先级</td><td>按先验概率或业务优先级打破平局</td><td>可注入业务知识</td><td>引入人为偏好，必须文档化</td></tr>
+        <tr><td>⑤ 确定性兜底</td><td>按类标签升序取最小 / 固定种子随机</td><td>保证"同输入同输出"，可测试</td><td>无种子随机会破坏可复现性，线上禁用</td></tr>
+      </tbody>
+    </table></div>
+    <div class="warn"><b>sklearn 的实现细节（易踩）</b>：邻居票数平局时，<code>KNeighborsClassifier.predict</code> 返回"排序/索引最小"的那个类别。这是<b>实现细节，不是接口契约</b>，跨版本可能变化。若平局语义影响业务（风控、医疗分级），应<b>自己实现投票并显式定义平局规则</b>。</div>
+
+    <h4>如何科学选 K：交叉验证，而不是凭感觉</h4>
+    <ol>
+      <li>候选集合：K ∈ {1, 2, 3, …, 30}，或从小 K 到 ≈√n 的对数间隔</li>
+      <li>对每个候选 K 做 k 折交叉验证（5 折或 10 折），取平均指标（分类用 F1；<b>不平衡数据用 macro-F1</b>）</li>
+      <li>画"K - CV 分数"曲线：典型形态是<b>先升后降的单峰 / U 形</b>，峰值就是最优区</li>
+      <li>平台期可用<b>一倍标准差规则</b>：在"最高分 − 1 个标准差"内选<b>更平滑（更大 K）</b>的那个</li>
+      <li><b>绝对不要用测试集选 K</b>——那是二次数据泄漏，测试分数会虚高</li>
+    </ol>
+
+    <div class="lab">
+      <div class="lab-head"><span class="h">@_@ 实验室 3 · 主实验室</span><span class="badge">K 值</span><span class="badge">邻居连线</span><span class="badge">投票计数</span><span class="badge">平局检测</span><span class="badge">决策边界</span></div>
+      <p class="lab-use"><b>怎么玩</b>：先点"在画布上放置测试点"模式，然后点击画布任意位置。程序会动画画出测试点到最近 K 个点的连线、按距离顺序高亮邻居、实时统计票数并给出预测类别。<b>把 K 调到 4 或 6（偶数）</b>，在交界处多点几下，就能亲眼看到平局提示。</p>
+      <div class="lab-grid">
+        <div class="stage">
+          <canvas class="screen" id="lab3" width="660" height="460"></canvas>
+          <div class="ctrl">
+            <div class="stage-label">本次预测的投票结果（随测试点实时更新）</div>
+            <div id="l3-votes"><div class="hint">点击画布放置测试点后显示投票计数。</div></div>
+            <div class="verdict" id="l3-verdict" style="color:#6b7a90">等待放置测试点…</div>
+            <div class="tie" id="l3-tie"></div>
+          </div>
+        </div>
+        <div>
+          <div class="ctrl">
+            <div class="row" style="justify-content:space-between"><label>K（邻居数）</label><span class="pill" id="l3-parity">奇数</span></div>
+            <input type="range" id="l3-k" min="1" max="25" step="1" value="3">
+            <div class="row"><span class="mono" style="font-size:var(--fs-md);color:#0b2a4a;font-weight:700">K = <span id="l3-kval">3</span></span>
+              <button class="btn ghost" id="l3-sweep">▶ K 自动扫描（看边界变化）</button></div>
+            <div class="hint">K=1 边界极端曲折（过拟合）；K 增大边界趋于平滑；K 接近样本总数时几乎所有点都被判成多数类（欠拟合）。</div>
+          </div>
+          <div class="ctrl">
+            <div class="row"><label>点击模式：</label></div>
+            <div class="row">
+              <button class="btn on" data-mode="query">放置测试点</button>
+              <button class="btn ghost" data-mode="A">加红点</button>
+              <button class="btn ghost" data-mode="B">加蓝点</button>
+            </div>
+            <div class="row" style="margin-top:9px">
+              <button class="btn ghost" id="l3-resample">重新生成样本</button>
+              <button class="btn warnbtn" id="l3-clear">清空全部点</button>
+            </div>
+            <div class="row" style="margin-top:9px">
+              <label><input type="checkbox" id="l3-boundary"> 决策边界热力图</label>
+              <label><input type="checkbox" id="l3-lines" checked> 邻居连线</label>
+            </div>
+          </div>
+          <div class="ctrl">
+            <div class="kv"><span class="k">测试点位置</span><span class="v" id="l3-pos">--</span></div>
+            <div class="kv"><span class="k">样本总数</span><span class="v" id="l3-n">--</span></div>
+            <div class="kv"><span class="k">决策边界</span><span class="v">见画布底色</span></div>
+          </div>
+        </div>
+      </div>
+      <div class="hint">※ 本模块只实现<b>基础多数投票</b>（等权）。加权投票的原理与公式见 2.5，交互动画里故意不做，方便你对比"等权 vs 加权"的差别。</div>
+    </div>
+  </section>
+
+  <section class="chapter" id="ch2-4">
+    <h3>2.4 决策规则</h3>
+    <h4>分类：多数投票法</h4>
+    <div class="formula"><span class="lbl">多数投票</span>ŷ = argmax<sub>c ∈ 𝒴</sub> Σ<sub>i ∈ N<sub>K</sub>(x)</sub> I(y<sub>i</sub> = c)</div>
+    <p>其中 𝒴 是类别集合。平局处理见 2.3 的表格。</p>
+    <p><b>票数比例形式的概率估计</b>（注意：这不该叫"软投票"——软投票通常指多个模型各自输出概率后取平均）：sklearn 的 <code>predict_proba</code> 返回 K 个邻居中各类别的<b>比例</b>。它常被当置信度用，但必须清楚：<b>这个比例不是校准概率</b>。5 个邻居里 4 票支持某类得到 0.8，并不意味着"80% 的概率是这个类"——它没有考虑邻居本身的标签噪声、类别先验和 K 的选取。需要真实概率要另行校准（Platt scaling、等渗回归）。</p>
+    <h4>回归：平均 / 中位数 / 加权平均</h4>
+    <ul>
+      <li><b>均值</b>：ŷ = (1/K) Σ y<sub>i</sub>　——最常用，但对邻居中的异常标签敏感</li>
+      <li><b>中位数</b>：对标签噪声稳健，代价是输出有偏（不是平方误差意义下的最优）</li>
+      <li><b>加权平均</b>：ŷ = Σ w<sub>i</sub> y<sub>i</sub> / Σ w<sub>i</sub>　——见 2.5</li>
+    </ul>
+    <div class="note"><b>小实验</b>：把邻居标签中的一个数值改成极端离群值（房价 500 万里混进一个 5 亿），均值会被显著拖动，中位数几乎不动。<b>选择聚合函数 = 选择对噪声的鲁棒性。</b></div>
+  </section>
+
+  <section class="chapter" id="ch2-5">
+    <h3>2.5 加权 KNN：让更近的邻居说话更算数</h3>
+    <p><b>动机</b>：普通 KNN 把第 1 近邻（距离 0.01）和第 K 近邻（距离 1.00）的票权视为完全相等。但 KNN 的全部信念就是"越像越可能是同类"——票权相等直接违背了这个信念。</p>
+    <div class="tw"><table>
+      <thead><tr><th>权重函数</th><th>公式</th><th>特点</th></tr></thead>
+      <tbody>
+        <tr><td>距离倒数</td><td>w<sub>i</sub> = 1 / d<sub>i</sub>（工程上写 1/(d<sub>i</sub> + ε)）</td><td>最常用；ε 用于数值兜底</td></tr>
+        <tr><td>距离平方倒数</td><td class="nw">w<sub>i</sub> = 1 / d<sub>i</sub>²</td><td>更激进，几乎只信最近的几个邻居；K 很大时行为接近 1-NN</td></tr>
+        <tr><td>高斯核</td><td class="nw">w<sub>i</sub> = exp( −d<sub>i</sub>² / (2σ²) )</td><td>平滑衰减；多了一个要选的带宽 σ</td></tr>
+        <tr><td>秩权重</td><td>w<sub>i</sub> = 1/i 或 (K+1−i)/K</td><td>只看顺序、不看距离量级（对距离的单调变换免疫）<br>但换特征缩放会改变"谁是前 K 个邻居"，并不免疫尺度问题</td></tr>
+      </tbody>
+    </table></div>
+    <div class="warn"><b>d = 0 的处理（必考点）</b>：查询点与某训练样本完全重合时，倒数权重变成无穷。标准处理：直接返回该样本标签（"精确命中"），或统一使用 w<sub>i</sub> = 1/(d<sub>i</sub> + ε)，ε 取 10⁻⁸ 量级。</div>
+    <p><b>决策规则</b>：分类 ŷ = argmax<sub>c</sub> Σ w<sub>i</sub> I(y<sub>i</sub>=c)；回归 ŷ = Σ w<sub>i</sub> y<sub>i</sub> / Σ w<sub>i</sub>。</p>
+    <p><b>收益</b>：密度不均或类别边界附近通常更准。<b>代价与坑</b>：<br>① 搜索 K 个邻居的成本完全不变（不是算法加速）<br>② 对噪声更敏感——若一个错标样本恰好离查询点最近，它的权重最大，错误被放大（缓解：适度增大 K）<br>③ 数值稳定性（必须处理 d→0）<br>④ 多了一个超参数。</p>
+    <div class="quote"><b>理论视角（加分项）</b>：加权投票可以看作<b>核平滑（kernel smoothing）/ Parzen 窗</b>思想的离散版本——在查询点周围放一个核函数，邻居按核值加权。当 K → n 且权重由核函数给出时，KNN 回归趋近于 Nadaraya–Watson 核回归。这是 KNN 与核方法之间的一座桥。</div>
+  </section>
+
+  <section class="chapter" id="ch3-1">
+    <h2><span class="num">03</span> KNN 完整算法流程 <span class="tag lv3">工程实践层 · 专业重点</span></h2>
+
+    <h3>3.1 完整算法步骤与复杂度</h3>
+    <p><b>输入</b>：训练集 D = {(x<sub>i</sub>, y<sub>i</sub>)}<sub>i=1..n</sub>、查询样本 x<sub>q</sub>、邻居数 K、距离函数 d(·,·)、决策规则。<b>输出</b>：预测值 ŷ。</p>
+    <ol>
+      <li><b>预处理（离线）</b>：特征清洗、编码、缺失值处理、标准化（参数只从训练集估计）、选择距离度量</li>
+      <li><b>算距离</b>：计算 x<sub>q</sub> 到每个训练样本的距离 → O(n·d)</li>
+      <li><b>选邻居</b>：取距离最小的 K 个。<b>不需要全排序</b>：用大小为 K 的堆 O(n log K)，或 quickselect 期望 O(n)</li>
+      <li><b>决策</b>：投票 / 加权投票 / （加权）平均 → O(K)</li>
+      <li><b>输出</b> ŷ</li>
+    </ol>
+    <div class="tw"><table>
+      <thead><tr><th>阶段</th><th>时间复杂度</th><th>空间复杂度</th><th>说明</th></tr></thead>
+      <tbody>
+        <tr><td>训练（暴力版）</td><td>O(1)</td><td>O(n·d)</td><td>只是把数据存下来</td></tr>
+        <tr><td>预测（单样本）</td><td class="nw">O(n·d) + O(n log K)</td><td>O(n) 临时距离数组</td><td>与训练集大小<b>线性相关</b></td></tr>
+        <tr><td>批量预测（m 个）</td><td>O(m·n·d)</td><td>—</td><td>大规模场景的致命项</td></tr>
+        <tr><td>建索引（KD-Tree，可选）</td><td>O(n log n) 期望</td><td>O(n)</td><td>用训练期开销换预测期速度</td></tr>
+      </tbody>
+    </table></div>
+
+    <h3 id="ch3-2">3.2 手写伪代码（不调用任何机器学习库）</h3>
+    <p>粒度刻意保持清晰，覆盖"距离计算 → top-K 选择 → 平局处理 → 加权投票"的完整逻辑：</p>
+    <div class="codeblock">
+      <div class="code-head"><span class="lang">pseudocode</span><span class="kind">完整流程 · 含平局与除零处理</span><button class="copy">复制</button></div>
+      <pre><code>ALGORITHM KNN_PREDICT(D, x_q, K, dist, weights_mode, tie_rule)
+
+  INPUT : D            = 训练集 {(x_i, y_i)}, i = 1..n, x_i 维度为 d
+          x_q          = 待预测样本
+          K            = 邻居数 (1 &lt;= K &lt;= n)
+          dist(a, b)   = 距离函数, 例如 L2 / L1 / cosine
+          weights_mode = "uniform" | "distance"
+          tie_rule     = "nearest" | "class_prior" | "smallest_label"
+  OUTPUT: y_hat (分类标签) 或数值(回归)
+
+  # ---------- 阶段 1：计算距离 ----------
+  dists = empty array of size n
+  FOR i = 1 TO n:
+      dists[i] = dist(x_q, D.x[i])            # 每次 O(d) -&gt; 合计 O(n*d)
+  END FOR
+
+  # ---------- 阶段 2：选出距离最小的 K 个（最大堆维护，不全排序） ----------
+  heap = empty max-heap keyed by distance      # 堆顶是“当前 K 个里最远的那个”
+  FOR i = 1 TO n:
+      IF heap.size &lt; K:
+          heap.push( (dists[i], i) )
+      ELSE IF dists[i] &lt; heap.top().distance:
+          heap.pop()                           # 踢掉最远的，换成更近的
+          heap.push( (dists[i], i) )
+      END IF
+  END FOR
+  neighbors = sort(heap.items by distance asc)  # 只需对 K 个元素排序 O(K log K)
+  # 全程 O(n log K)；若用 quickselect 可做到期望 O(n)
+
+  # ---------- 阶段 3：计算权重 ----------
+  FOR each nb IN neighbors:
+      IF weights_mode == "uniform":
+          nb.w = 1
+      ELSE:                                     # 距离加权
+          IF nb.distance == 0:                  # 精确命中，直接返回该样本标签
+              RETURN D.y[nb.index]
+          END IF
+          nb.w = 1 / nb.distance                # 工程实现写成 1/(d + 1e-8) 防除零
+      END IF
+  END FOR
+
+  # ---------- 阶段 4A：分类 -&gt; 加权多数投票 ----------
+  IF task == CLASSIFICATION:
+      score = {}                                # 类别 -&gt; 累计权重
+      FOR each nb IN neighbors:
+          score[ D.y[nb.index] ] += nb.w
+      END FOR
+      best_score = max(score.values)
+      winners = { c in score : score[c] == best_score }   # 注意：winners 可能不止一个！
+
+      IF |winners| == 1:
+          RETURN the single winner
+      ELSE:                                     # ---------- 平局处理 ----------
+          SWITCH tie_rule:
+              CASE "nearest":                   # 谁有最近的邻居就归谁
+                  FOR nb IN neighbors (按距离升序):
+                      IF D.y[nb.index] IN winners:
+                          RETURN D.y[nb.index]
+                  END FOR
+              CASE "class_prior":               # 先验概率大的类优先
+                  RETURN argmax_{c in winners} prior[c]
+              CASE "smallest_label":            # 确定性兜底，保证可复现
+                  RETURN min(winners)
+          END SWITCH
+      END IF
+  END IF
+
+  # ---------- 阶段 4B：回归 ----------
+  IF task == REGRESSION:
+      num = 0 ; den = 0
+      FOR each nb IN neighbors:
+          num += nb.w * D.y[nb.index]
+          den += nb.w
+      END FOR
+      RETURN num / den                          # uniform 时退化为普通均值
+  END IF
+
+END ALGORITHM</code></pre>
+    </div>
+    <div class="note"><b>三个会被追问的工程细节</b>：<br>① <b>堆 vs 全排序</b>：全排序 O(n log n)，堆只要 O(n log K)，n=10⁶、K=10 时差距明显，且堆只需 O(K) 额外内存<br>② <b>平局必须显式处理</b>：代码里 <code>winners</code> 是集合，明确写了"可能不止一个元素"<br>③ <b>除零保护</b>：1/d 在 d=0 时是 ∞，不处理会得到 NaN 并污染整个投票。</div>
+
+    <h3>3.3 可运行的极简 JS 模拟（本页真实执行）</h3>
+    <p>下面的代码不是装饰——点按钮就会在本页真实运行，输出距离表与投票结果。它和下面 3.3.1 的 Python 版主干逻辑一致（距离 → top-K → 多数投票），只是换成了 JavaScript；教学版省略了加权与平局策略。</p>
+    <div class="codeblock">
+      <div class="code-head"><span class="lang">javascript</span><span class="kind">完整可运行 · 含平局检测</span><button class="copy">复制</button></div>
+      <pre><code>// 极简 KNN：距离计算 -&gt; top-K 选择 -&gt; 多数投票（含平局检测）
+const TRAIN = [
+  { x: [1.0, 1.1], y: "A" }, { x: [1.2, 0.9], y: "A" }, { x: [1.6, 1.5], y: "A" },
+  { x: [3.1, 2.9], y: "B" }, { x: [3.3, 3.4], y: "B" }, { x: [2.9, 3.2], y: "B" },
+];
+
+function euclid(a, b) {                       // L2 距离
+  let s = 0;
+  for (let j = 0; j &lt; a.length; j++) s += (a[j] - b[j]) ** 2;
+  return Math.sqrt(s);
+}
+
+function knnPredict(train, query, k) {
+  // 1) 算距离并保留标签，距离为 0 时精确命中
+  const dists = train.map((p, i) =&gt; ({ i, y: p.y, d: euclid(p.x, query) }));
+  // 2) 升序排序后取前 k（教学版用排序；工程版用堆或 argpartition）
+  dists.sort((a, b) =&gt; a.d - b.d);
+  const neighbors = dists.slice(0, Math.min(k, dists.length));
+  // 3) 多数投票
+  const score = {};
+  neighbors.forEach(nb =&gt; { score[nb.y] = (score[nb.y] || 0) + 1; });
+  const best = Math.max(...Object.values(score));
+  const winners = Object.keys(score).filter(c =&gt; score[c] === best);
+  return { neighbors, score, best, winners, tie: winners.length &gt; 1 };
+}
+
+const q = [2.0, 2.0];
+[1, 3, 5, 6].forEach(k =&gt; {
+  const r = knnPredict(TRAIN, q, k);
+  console.log("K=" + k, r.tie ? "平局！" + r.winners.join("/") : "预测=" + r.winners[0], r.score);
+});</code></pre>
+    </div>
+    <div class="row"><button class="btn" id="jsrun">▶ 在浏览器中运行这段 JS</button><button class="btn ghost" id="jsclr">清空输出</button><span class="hint">输出显示在下方控制台区域（console.log 被重定向到页面）。</span></div>
+    <div class="out" id="jsout">// 点击上方按钮运行，观察 K=1/3/5/6 时结果的差别（K=6 会出现平局）</div>
+
+    <h4>3.3.1 Python 手写实现（NumPy 向量化，不调 sklearn）</h4>
+    <p>同一套逻辑（距离 → top-K → 投票）换成工程上真正会写的向量化形式：距离矩阵用一次矩阵乘法算完，top-K 用 <code>argpartition</code> 做部分选择，并显式处理浮点负值、<code>d=0</code> 与平局。</p>
+    <div class="codeblock">
+      <div class="code-head"><span class="lang">python</span><span class="kind">手写 NumPy 实现 · 不调 sklearn</span><button class="copy">复制</button></div>
+      <pre><code>import numpy as np
+
+def knn_predict(X_train, y_train, X_query, k=5, metric="l2", weights="uniform", task="clf"):
+    """
+    X_train : (n, d) 训练特征（已标准化）
+    y_train : (n,)   训练标签（分类为整数编码 / 回归为浮点）
+    X_query : (m, d) 待预测样本（用训练集的缩放参数 transform 得到）
+    """
+    # ---- 1. 一次广播算出 (m, n) 距离矩阵，避免 Python 层双重循环 ----
+    # 利用 ||a-b||^2 = ||a||^2 - 2a·b + ||b||^2，把距离展开成矩阵乘法（走 BLAS）
+    if metric == "l2":
+        Xq2 = (X_query ** 2).sum(axis=1, keepdims=True)      # (m, 1)
+        Xt2 = (X_train ** 2).sum(axis=1, keepdims=True)      # (n, 1)
+        D2 = Xq2 + Xt2.T - 2.0 * X_query @ X_train.T         # (m, n)
+        D = np.sqrt(np.maximum(D2, 0.0))                     # 裁剪负值：浮点误差会造出 -1e-13
+    elif metric == "l1":
+        # 曼哈顿距离：(m, 1, d) - (1, n, d) -&gt; (m, n, d)，再用 sum 压缩
+        D = np.abs(X_query[:, None, :] - X_train[None, :, :]).sum(axis=2)
+    else:
+        raise ValueError("unsupported metric: " + metric)
+
+    # ---- 2. 取每行的 top-k 下标；argpartition 只做部分选择，比 argsort 快 ----
+    k_eff = min(k, X_train.shape[0])
+    idx = np.argpartition(D, kth=k_eff - 1, axis=1)[:, :k_eff]     # 不保证有序，只保证前 k 小
+    rows = np.arange(D.shape[0])[:, None]
+    d_nb = D[rows, idx]                                            # (m, k) 对应的距离
+    order = np.argsort(d_nb, axis=1)                               # 只需对 k 个元素排序
+    idx = idx[rows, order]
+    y_nb = y_train[idx]                                            # (m, k) 邻居标签
+    d_nb = d_nb[rows, order]
+
+    # ---- 3. 权重 ----
+    if weights == "uniform":
+        w = np.ones_like(d_nb)
+    else:
+        exact = d_nb == 0.0
+        w = 1.0 / (d_nb + 1e-8)                                    # 加 eps 防除零
+        if task == "clf" and exact.any():                          # 精确命中：给超大权重近似"直接命中"
+            hit_row, hit_pos = np.where(exact)
+            w[hit_row, hit_pos] = 1e12
+
+    # ---- 4. 决策 ----
+    if task == "clf":
+        n_cls = int(y_train.max()) + 1
+        onehot = np.zeros((y_nb.shape[0], n_cls))
+        np.add.at(onehot, (np.arange(y_nb.shape[0])[:, None], y_nb), w)   # 按权重累加到对应类别
+        pred = onehot.argmax(axis=1)
+        # 平局检测：最大分数被多个类别并列取得，即发生平局
+        tied = (onehot == onehot.max(axis=1, keepdims=True)).sum(axis=1) &gt; 1
+        return pred, tied, onehot
+    else:
+        return (w * y_nb).sum(axis=1) / w.sum(axis=1), None, None</code></pre>
+    </div>
+    <div class="note"><b>三个容易踩的点</b>：<br>① <code>||a-b||^2</code> 的展开式在浮点下可能算出负数，必须 <code>np.maximum(D2, 0.0)</code> 裁剪，否则开方得到 NaN 并静默污染全部结果<br>② <code>argpartition</code> 只保证前 k 个是最小的 k 个、不保证有序，所以还要对这 k 个再排一次<br>③ 平局与 <code>d=0</code> 必须显式处理（函数把 <code>tied</code> 作为一等公民返回）。</div>
+
+    <h3 id="ch3-4">3.4 sklearn 生产写法（Python 代码展示，不在浏览器运行）</h3>
+    <div class="codeblock">
+      <div class="code-head"><span class="lang">python</span><span class="kind">sklearn 分类 · 标准化 + CV 调参</span><button class="copy">复制</button></div>
+      <pre><code>import numpy as np
+from sklearn.datasets import load_breast_cancer
+from sklearn.model_selection import train_test_split, GridSearchCV
+from sklearn.pipeline import Pipeline
+from sklearn.preprocessing import StandardScaler
+from sklearn.neighbors import KNeighborsClassifier
+from sklearn.metrics import classification_report, confusion_matrix
+
+# 1) 数据：威斯康星乳腺癌数据集（569 样本 / 30 维 / 二分类，sklearn 内置，无需联网下载）
+X, y = load_breast_cancer(return_X_y=True)
+
+# 2) 先切出测试集，之后“封存”，只在最后评估时用一次
+X_train, X_test, y_train, y_test = train_test_split(
+    X, y, test_size=0.2, random_state=42, stratify=y)   # stratify 保持类别比例
+
+# 3) Pipeline 把“标准化 + KNN”绑成一个整体，保证 CV 内部不会数据泄漏
+pipe = Pipeline([
+    ("scaler", StandardScaler()),                       # 30 个特征量纲不同，必须标准化
+    ("knn", KNeighborsClassifier(metric="euclidean", algorithm="auto")),
+])
+
+# 4) 网格搜索 K：交给交叉验证，不凭直觉写死 5
+param_grid = {"knn__n_neighbors": list(range(1, 31, 2))}
+search = GridSearchCV(pipe, param_grid, cv=5, scoring="f1_macro", return_train_score=True)
+search.fit(X_train, y_train)
+print("best params:", search.best_params_)
+print("best CV f1_macro:", round(search.best_score_, 4))
+
+# 5) 打印 K - 分数曲线，确认最优 K 不在候选边界上
+for k, s in zip(param_grid["knn__n_neighbors"], search.cv_results_["mean_test_score"]):
+    print("K =", k, " CV f1_macro =", round(s, 4))
+
+# 6) 最终评估：测试集只用这一次
+y_pred = search.best_estimator_.predict(X_test)
+print(confusion_matrix(y_test, y_pred))
+print(classification_report(y_test, y_pred, digits=4))</code></pre>
+    </div>
+    <div class="codeblock">
+      <div class="code-head"><span class="lang">python</span><span class="kind">sklearn 回归 · 等权 vs 距离加权</span><button class="copy">复制</button></div>
+      <pre><code>from sklearn.datasets import load_diabetes      # sklearn 内置回归数据（442 样本 / 10 维），无需联网
+from sklearn.neighbors import KNeighborsRegressor
+from sklearn.model_selection import cross_val_score
+from sklearn.pipeline import make_pipeline
+from sklearn.preprocessing import StandardScaler
+from sklearn.dummy import DummyRegressor
+
+X, y = load_diabetes(return_X_y=True)           # 目标是连续值 -&gt; 回归任务（不能拿分类数据做回归示例）
+
+# 先看基线：任何回归模型都必须先打败“直接预测均值”
+base = cross_val_score(DummyRegressor(), X, y, cv=5, scoring="neg_mean_absolute_error")
+print("baseline CV MAE =", round(-base.mean(), 2))
+
+for w in ["uniform", "distance"]:                # uniform = 等权平均；distance = 按 1/d 加权
+    model = make_pipeline(StandardScaler(), KNeighborsRegressor(n_neighbors=7, weights=w))
+    scores = cross_val_score(model, X, y, cv=5, scoring="neg_mean_absolute_error")
+    print("weights =", w, " CV MAE =", round(-scores.mean(), 2))
+
+# 注意：distance 加权在密度不均的数据上通常更好，但必须用 CV 验证，不要凭感觉选
+# 另外记住：KNN 回归输出必然落在 K 个邻居标签的 [min, max] 内，无法外推</code></pre>
+    </div>
+    <div class="tw"><table>
+      <thead><tr><th>参数</th><th>取值</th><th>含义与影响</th></tr></thead>
+      <tbody>
+        <tr><td><code>n_neighbors</code></td><td>1 ~ n</td><td>邻居数 K，唯一必须调的超参数</td></tr>
+        <tr><td><code>weights</code></td><td><code>'uniform'</code> / <code>'distance'</code> / callable</td><td>票权；<code>'distance'</code> 即 w = 1/d</td></tr>
+        <tr><td><code>algorithm</code></td><td><code>'auto'</code> / <code>'kd_tree'</code> / <code>'ball_tree'</code> / <code>'brute'</code></td><td>近邻搜索结构；<code>'auto'</code> 按数据规模与维度自动选</td></tr>
+        <tr><td><code>metric</code></td><td><code>'euclidean'</code> / <code>'manhattan'</code> / <code>'cosine'</code> …</td><td>距离度量。<b>注意与 algorithm 的兼容性</b>：cosine 不能用 kd_tree</td></tr>
+        <tr><td><code>p</code></td><td>1 / 2 …</td><td><code>metric='minkowski'</code> 时的指数：p=1 等价 L1，p=2 等价 L2</td></tr>
+        <tr><td><code>leaf_size</code></td><td>默认 30</td><td>树结构叶节点大小，影响建树/查询速度与内存，一般不用改</td></tr>
+        <tr><td><code>n_jobs</code></td><td>-1</td><td>并行核数。<b>只并行"多个查询点"，对单条查询无效</b>；批量查询时 kd_tree / ball_tree 与 brute 都会并行，实际收益随数据规模与硬件变化（有时因线程争用反而更慢），<b>须以实测为准</b></td></tr>
+      </tbody>
+    </table></div>
+
+    <h3 id="ch3-5">3.5 工程痛点（本节决定你能否把 KNN 用对地方）</h3>
+    <h4>3.5.1 预测复杂度：为什么大数据集上暴力 KNN 不可用</h4>
+    <p>量级估算（n = 10⁶，d = 128）：单次查询乘加次数 ≈ n × d = 1.28 × 10⁸；单精度训练集 ≈ 10⁶ × 128 × 4 B ≈ <b>512 MB</b>，每个查询都要把它过一遍；按内存带宽 20 GB/s，<b>仅内存读取</b>就要约 25 ms，叠加计算与排序，单次查询轻松到几十毫秒。若要求 QPS = 100、P99 &lt; 50 ms，<b>这套方案在量级上就不成立</b>——不是"优化一下"能解决的。</p>
+    <p>再叠加两个现实约束：<b>训练集必须常驻内存</b>（O(n·d)，不能像线性模型那样训练完就丢数据）；<b>批量打分放大问题</b>（m 个查询是 O(m·n·d)，离线批任务能接受，在线实时服务不能接受）。</p>
+    <div class="good"><b>结论</b>：暴力 KNN 的舒适区是<b>中小规模 + 可接受延迟 + 离线批处理</b>。数据一上规模、又要在线低延迟，就必须引入索引结构（精确）或 ANN（近似）。</div>
+
+    <div class="lab">
+      <div class="lab-head"><span class="h">@_@ 实验室 4</span><span class="badge">量纲失衡对照实验</span><span class="badge">标准化开/关</span></div>
+      <p class="lab-use">左右两块画布是<b>同一批样本、同一个查询点</b>。左：直接算欧氏距离；右：先做 Z-score 标准化再算距离。拖动滑块放大"特征 ①"的量纲倍数，观察左右两侧选出的最近邻何时开始分道扬镳、预测类别何时翻转。</p>
+      <div class="lab-grid two">
+        <div>
+          <div class="hint" style="margin:0 0 6px"><b>左：未标准化</b>（量纲大的一维支配距离）</div>
+          <canvas class="screen" id="lab4a" width="480" height="330"></canvas>
+        </div>
+        <div>
+          <div class="hint" style="margin:0 0 6px"><b>右：Z-score 标准化后</b>（各维等权参与）</div>
+          <canvas class="screen" id="lab4b" width="480" height="330"></canvas>
+        </div>
+      </div>
+      <div class="ctrl" style="margin-top:14px">
+        <label>特征 ① 的量纲倍数 c = <b class="mono" id="l4-c">1000</b> 倍（特征 ② 保持原样）</label>
+        <input type="range" id="l4-range" min="0" max="3" step="1" value="3">
+        <div class="row" style="justify-content:space-between">
+          <span class="hint">c=1（同量纲，两侧一致）　→　c=10　→　c=100　→　c=1000（严重失衡）</span>
+        </div>
+        <div class="kv"><span class="k">未标准化：选中的最近邻</span><span class="v" id="l4-na">--</span></div>
+        <div class="kv"><span class="k">标准化后：选中的最近邻</span><span class="v" id="l4-nb">--</span></div>
+        <div class="kv"><span class="k">两者是否一致</span><span class="v" id="l4-same">--</span></div>
+        <div class="tie" id="l4-warn"></div>
+      </div>
+      <div class="hint">※ 这个模块只做 1-NN，为的是让效应最清晰：量纲失衡时，未标准化版本的"最近邻"会退化成"只在这一维上最接近"的样本。</div>
+    </div>
+
+    <h4 id="ch3-52">3.5.2 KD-Tree 与 Ball-Tree：用空间结构换查询时间（准确表述）</h4>
+    <div class="warn"><b>先把三句话说准（考试/面试必答）</b>：<br>① KD-Tree 是<b>对训练集</b>建立的索引结构，建树发生在<b>训练阶段</b>，期望开销 O(n log n)<br>② 它的作用是<b>降低预测阶段最近邻搜索的开销</b>，<b>不是加速训练</b>——暴力版训练是 O(1)，用了 KD-Tree 反而要在训练期花更多时间，这是"用训练期开销和内存换预测期速度"<br>③ 它是<b>精确</b>搜索（不是近似），低维下查询期望 O(log n) 量级。</div>
+    <p><b>剪枝原理（直觉版）</b>：从根向下搜索时维护"当前找到的最近距离" r。对每个子树，计算查询点到该子树所代表区域的<b>最近可能距离</b> d<sub>box</sub>：若 d<sub>box</sub> &gt; r，则该子树里不可能有更近的点，<b>整枝跳过</b>。维度低时空间分割得很开，大量子树能被剪掉；维度高时几乎所有区域的 d<sub>box</sub> 都很小，剪不掉，于是退化为遍历全部样本。</p>
+    <p><b>为什么高维会退化（必考）</b>：随维度 d 增大，随机样本之间的欧氏距离会<b>集中</b>（最大距离与最小距离之比趋于 1），"最近邻"与"最远邻"的对比度消失，任何基于距离上下界的剪枝都失去判别力 → KD-Tree 退化为 O(n)，与暴力法持平甚至更慢（多了树遍历开销）。实践中可用维度与样本量、数据分布都有关：n 越大、结构越强，可用的维度越高；对相互独立的随机特征，d 到十几时剪枝就明显失效（实验室 5 里可以把这条曲线亲手跑出来）。sklearn 文档的经验是：维度较低（大致 d &lt; 20）时优先考虑 kd_tree，更高维度转向 ball_tree / brute 或直接上 ANN。<b>Ball-Tree</b> 用超球而不是超矩形划分，建树更贵，但在高维与部分非欧度量（曼哈顿、余弦）下更好；sklearn 中 <code>metric='cosine'</code> 只能用 <code>ball_tree</code> 或 <code>brute</code>。</p>
+
+    <div class="lab">
+      <div class="lab-head"><span class="h">@_@ 实验室 5</span><span class="badge">暴力搜索 vs KD-Tree</span><span class="badge">访问点数对比</span><span class="badge">高维退化</span></div>
+      <p class="lab-use">本页用同一份 JavaScript 实现了<b>暴力搜索</b>和一个真实的 <b>KD-Tree（含剪枝）</b>，在小规模数据上测平均查询耗时与"距离计算次数"。把<b>维度 d</b> 从 2 拉到 32～48，你会看到 KD-Tree 的访问点数从"远小于 n"膨胀到"接近 n"——这就是剪枝失效、退化为暴力的过程。</p>
+      <div class="lab-grid">
+        <div>
+          <div class="ctrl">
+            <label>训练样本数 n = <b class="mono" id="l5-nv">4000</b></label>
+            <input type="range" id="l5-n" min="500" max="20000" step="500" value="4000">
+            <label>特征维度 d = <b class="mono" id="l5-dv">2</b></label>
+            <input type="range" id="l5-d" min="2" max="48" step="2" value="2">
+            <div class="row" style="margin-top:8px">
+              <button class="btn" id="l5-run">▶ 运行对比（50 次查询）</button>
+              <button class="btn ghost" id="l5-reset">重新生成数据</button>
+            </div>
+            <div class="hint">K = 5。<b>拖动滑块松手后会自动重新计算</b>；n 与 d 乘积较大时查询次数会自动减少，耗时按"每次查询"折算。</div>
+          </div>
+          <div class="metric">
+            <div class="m"><div class="t">暴力搜索 · 平均耗时</div><div class="n" id="l5-tb">--</div><div class="s">每次查询 ms</div></div>
+            <div class="m"><div class="t">KD-Tree · 平均耗时</div><div class="n" id="l5-tk">--</div><div class="s">每次查询 ms</div></div>
+            <div class="m"><div class="t">暴力 · 距离计算次数</div><div class="n" id="l5-cb">--</div><div class="s">恒等于 n</div></div>
+            <div class="m"><div class="t">KD-Tree · 访问点数</div><div class="n" id="l5-ck">--</div><div class="s">平均每次查询</div></div>
+          </div>
+        </div>
+        <div>
+          <div class="ctrl">
+            <div class="kv"><span class="k">KD-Tree 建树耗时</span><span class="v" id="l5-build">--</span></div>
+            <div class="kv"><span class="k">速度比（暴力 / KD）</span><span class="v" id="l5-speed">--</span></div>
+            <div class="kv"><span class="k">剪枝效率（访问 / n）</span><span class="v" id="l5-eff">--</span></div>
+            <div class="bars">
+              <div class="b"><div class="top"><span>暴力搜索 · 距离计算次数</span><span class="mono" id="l5-lab1">--</span></div>
+                <div class="track"><div class="fill grey" id="l5-bar1"></div></div></div>
+              <div class="b"><div class="top"><span>KD-Tree · 访问点数</span><span class="mono" id="l5-lab2">--</span></div>
+                <div class="track"><div class="fill navy" id="l5-bar2"></div></div></div>
+            </div>
+            <div class="hint" id="l5-comment">先点"运行对比"。维度 d=2 时 KD-Tree 平均只访问极少数点（约 1%～2%）；把 d 依次拉到 8、16、32 再看一次，访问比例会快速逼近 100%。</div>
+          </div>
+          <div class="note" style="font-size:var(--fs-sm)"><b>说明</b>：本实验是浏览器内 JavaScript 实现，只用于展示<b>趋势</b>与<i>算法级</i>差异（访问点数、耗时量级），绝对数值与 C++/FAISS 等工程实现不可直接比较。真实工程中请用 <code>sklearn</code> 实测或 FAISS benchmark。</div>
+        </div>
+      </div>
+    </div>
+
+    <h4>3.5.3 特征尺度：不标准化的真实后果</h4>
+    <p><b>可以证明的部分（不是实验现象）</b>：若特征 j 的取值范围是特征 k 的 c 倍，则特征 j 对欧氏距离的贡献量级约是 k 的 c 倍；当 c 很大时，距离度量近似退化为"只看特征 j"。<b>推论</b>：其余特征携带的信息被丢弃，模型能力因此下降（例如业务上真正区分两类的是年龄，而距离只反映收入）。</p>
+    <p><b>一个常见的错误推论</b>：不能说"预测结果与 K 无关"——c → ∞ 时模型只是退化成一维 KNN，而一维 KNN 的预测<b>仍然依赖 K</b>（K 越大越平滑）。因此判据应当是"标准化前后分数差距明显 + 各特征量级比悬殊"，而不是"K 曲线是否平坦"。</p>
+    <div class="note"><b>建议自己跑的可复现实验</b>：取任一多特征数据集（如 <code>load_breast_cancer</code>），把某一维人为乘以 1000，比较四种配置的 CV 分数：<br>① 未标准化 + K=5<br>② 未标准化 + K 从 1 搜到 30<br>③ 标准化 + K=5<br>④ 标准化 + K 从 1 搜到 30。判定标准是 <b>③、④ 明显优于 ①、②</b>（本机实测：未标准化 best 0.905、标准化 best 0.968），再辅以"各特征 std / 极差的量级比"作为旁证；<b>不要把"标准化前 K 曲线是否平坦"当作判据</b>——退化成一维后的 KNN 仍然依赖 K，曲线不一定会变平。这个实验能让你真的记住尺度问题，也适合直接写进实验报告。</div>
+
+    <h4>3.5.4 类别不平衡</h4>
+    <p><b>现象</b>：正类只占 1%，KNN 找出的 K 个邻居大概率全是负类 → 正类召回率接近 0；但 accuracy 依然可以高达 99%，因为全预测负类就是 99%。<b>为什么 KNN 尤其受影响</b>：KNN 的决策完全由局部样本密度决定，而类别不平衡的本质就是密度不平衡——多数类在空间上"包围"少数类。</p>
+    <div class="tw"><table>
+      <thead><tr><th>缓解手段</th><th>做法</th><th>注意事项</th></tr></thead>
+      <tbody>
+        <tr><td>换评估指标</td><td>macro-F1<br>balanced accuracy<br>PR-AUC<br>逐类 recall</td><td><b>必做</b>，不是可选项</td></tr>
+        <tr><td>加权投票</td><td><code>weights='distance'</code><br>或自定义按类别频率倒数加权的投票</td><td>注意：<code>KNeighborsClassifier</code> <b>没有 <code>class_weight</code> 参数</b>（这点常被记错）</td></tr>
+        <tr><td>重采样</td><td>过采样 SMOTE / 欠采样</td><td>只能在<b>训练折内部</b>做（放进 Pipeline），否则数据泄漏</td></tr>
+        <tr><td>调小 K</td><td>小 K 更尊重局部结构，少数类的局部优势更易体现</td><td>代价是方差变大</td></tr>
+        <tr><td>换模型</td><td>代价敏感学习、树集成（带 class_weight）、逻辑回归</td><td>不平衡极端时往往比改造 KNN 更划算</td></tr>
+      </tbody>
+    </table></div>
+
+    <h4>3.5.5 其他工程坑清单</h4>
+    <ul>
+      <li><b>缺失值</b>：距离对 NaN 零容忍（会传染成 NaN）。先插补；<code>KNNImputer</code> 本身也是 KNN，注意只能在训练集 fit</li>
+      <li><b>重复/近似重复样本</b>：K 个"邻居"可能是同一个点，有效 K 变小 → 先去重</li>
+      <li><b>无关特征稀释相似度</b>：混入大量无关维度后，<b>做特征选择/降维的收益通常远大于调 K</b></li>
+      <li><b>类别型特征</b>：需编码；one-hot 后欧氏距离含义模糊，考虑汉明/杰卡德或余弦</li>
+      <li><b>可复现性</b>：平局策略、随机种子、浮点误差导致的近邻顺序抖动（用稳定排序 + 次键）</li>
+      <li><b>训练/推理一致性（线上事故高频来源）</b>：标准化参数、特征顺序、缺失值填充策略、距离度量版本必须与训练时严格一致；建议整条 Pipeline 一起序列化保存</li>
+      <li><b>增量更新</b>：KNN 天然支持加样本，但索引结构需重建或增量维护（HNSW 支持插入/删除，KD-Tree 一般需重建）</li>
+      <li><b>概率输出</b>：<code>predict_proba</code> 不是校准概率，别用于定价/风控阈值</li>
+    </ul>
+    <div class="good"><b>上线前 10 条检查清单</b>：<br>① 度量与业务语义匹配？<br>② 标准化参数只在训练集 fit、且包在 Pipeline 里？<br>③ K 由 CV 选出、曲线形态合理？<br>④ 看过不平衡指标（macro-F1 / 逐类 recall）？<br>⑤ 平局策略确定且可复现？<br>⑥ 规模与延迟要求是否与暴力搜索兼容，否则用了索引/ANN？<br>⑦ 维度灾难风险是否评估（是否需要降维）？<br>⑧ 内存 O(n·d) 是否可接受？<br>⑨ 训练/推理预处理版本严格一致？<br>⑩ 做过压测（P50/P99、QPS）与回滚预案？</div>
+  </section>
+
+  <section class="chapter" id="ch4-1">
+    <h2><span class="num">04</span> 进阶思考：取舍、面试考点与学习延伸 <span class="tag lv4">进阶思考层</span></h2>
+
+    <h3>4.1 KNN 的优点（逐条深度解释）</h3>
+    <ol>
+      <li><b>无需假设数据分布、无参数化模型</b>：线性模型假设决策边界是超平面，KNN 不做任何全局形式假设，能拟合任意形状的边界（局部、非线性、多峰）。类别边界极不规则、又缺乏领域先验时，这是实质优势。</li>
+      <li><b>天生支持多分类与多输出</b>：从二分类推广到 C 类只是投票表多几列，不需要 One-vs-Rest 之类技巧，也不引入新的超参数。</li>
+      <li><b>训练成本为零、增量友好</b>：新数据到了直接进库就能立刻影响预测（在线学习的雏形），不需要重新训练。适合数据持续增长、模型需要快速吸收新样本的场景。</li>
+      <li><b>可解释性形态独特</b>：给出的是<b>证据样本</b>而不是系数或规则——"这 5 个和你最像的客户都违约了"。在风控、医疗辅助沟通等场景，这比"权重 0.37"更有说服力。</li>
+      <li><b>天然的距离 baseline</b>：任何"相似性"任务的第一版方案都应该是 KNN（或其 ANN 版本）。它给出下限参考：深度模型打不过 KNN，说明特征或训练流程有问题。</li>
+      <li><b>实现简单、可嵌入</b>：几十行代码就能实现，可以塞进不支持机器学习的运行环境（嵌入式、数据库 UDF，甚至 SQL）。</li>
+    </ol>
+
+    <h3>4.2 KNN 的缺点（逐条深度分析）</h3>
+    <ol>
+      <li><b>预测复杂度 O(n·d)</b>：最致命的缺点。KNN 把成本从训练搬到推理，而在线系统对推理成本最敏感。规模一大就必须用索引或 ANN。</li>
+      <li><b>空间复杂度 O(n·d) 常驻</b>：模型即数据、无法压缩。对比 SVM 只存支持向量、线性模型只存参数——这是"知识是否被压缩"的本质差别。</li>
+      <li><b>维度灾难</b>：高维下所有点距离趋于相近，最近邻不再显著比最远邻更近，"局部平滑假设"崩塌；同时 KD-Tree 剪枝失效、维持相同密度所需样本量随维度指数增长。→ 应对：降维（PCA）、特征选择、度量学习。</li>
+      <li><b>对特征尺度与无关特征极度敏感</b>：距离对所有维度等权求和，未标准化的量纲或大量无关特征会直接污染"相似度"的定义。这就是"特征工程决定 KNN 成败"的原因。</li>
+      <li><b>类别不平衡下系统性偏向多数类</b>：因为它是密度驱动的模型，见 3.5.4。</li>
+      <li><b>要求"距离有意义"</b>：混合类型特征（连续 + 类别 + 文本）上欧氏距离没有语义；度量选错，调 K 也救不回来。</li>
+      <li><b>无法外推（回归）</b>：输出必然是邻居标签的（加权）平均，永远落在训练标签值域内。趋势、周期、外推任务必须换模型。</li>
+      <li><b>标签噪声直接进决策</b>：没有"参数平滑"这一层，一个错标样本会在其邻域持续制造错误预测（K 小时尤甚）。</li>
+      <li><b>不可微、无法梯度优化</b>：不能端到端训练，也难以与神经网络联合优化。现代做法是"用神经网络学 embedding，再在 embedding 空间做 KNN/ANN 检索"——KNN 没被淘汰，而是被搬进了表示空间。</li>
+      <li><b>概率输出未校准</b>：<code>predict_proba</code> 只是邻居票数比例，不能当真实概率用。</li>
+      <li><b>数据治理成本高</b>：数据即模型，删除隐私数据（合规要求）、修正错标、版本回滚都要直接操作"模型本体"，比重新训练一个参数文件麻烦得多。</li>
+    </ol>
+
+    <h3 id="ch4-3">4.3 工业场景：什么时候用，什么时候坚决不用</h3>
+    <div class="tw"><table>
+      <thead><tr><th style="width:38%">√ 适合使用（或用它的 ANN 版本）</th><th>原因与关键注意点</th></tr></thead>
+      <tbody>
+        <tr><td>推荐系统召回层</td><td>用户/物品 embedding + ANN 找 TopN 相似<br>线上<b>必须</b>用 ANN 索引，不是暴力搜索</td></tr>
+        <tr><td>图像/文本检索、去重、版权检测</td><td>"相似即相关"天然契合向量检索；用余弦/内积，注意归一化与索引选择</td></tr>
+        <tr><td>异常检测</td><td>用"到 K 个最近邻的距离"作为异常分数（远离所有样本 = 异常）<br>LOF 就是这个思想加密度修正<br>需要历史正常样本做基准</td></tr>
+        <tr><td>小样本 / 冷启动的快速基线</td><td>数据少时训练零成本、不挑数据，甚至优于深度模型；数据量上来后要换方案</td></tr>
+        <tr><td>缺失值插补（KNNImputer）</td><td>用相似样本的值填补，比均值填充更合理；插补器只能在训练集 fit</td></tr>
+        <tr><td>边界极不规则、量级中等（10³～10⁵）</td><td>局部非参数方法的强项；必须做标准化 + 特征选择</td></tr>
+        <tr><td><b>离线批处理打分</b></td><td>每天/每小时跑一批、延迟不敏感 → <b>暴力 KNN 的最佳适用区</b>；注意分块计算控制内存</td></tr>
+      </tbody>
+    </table></div>
+    <div class="tw"><table>
+      <thead><tr><th style="width:38%">× 坚决不要用</th><th>原因</th></tr></thead>
+      <tbody>
+        <tr><td>大规模在线低延迟、高 QPS（毫秒级 P99）</td><td>O(n·d) 在量级上不成立，除非整体换成 ANN 体系</td></tr>
+        <tr><td>超高维稠密特征且无法有效降维</td><td>距离对比度消失，效果退化到接近随机；KD-Tree 同时失效</td></tr>
+        <tr><td>需要趋势预测 / 外推 / 长期时间序列</td><td>结构性限制，调参无法解决</td></tr>
+        <tr><td>需要全局可解释规则（强监管、要写进制度）</td><td>KNN 只能给局部证据样本，给不出全局规则</td></tr>
+        <tr><td>极端不平衡 + 必须保证少数类高召回 + 不允许重采样</td><td>系统性偏向多数类，改造收益有限</td></tr>
+        <tr><td>高基数类别特征为主且找不到合适度量</td><td>"距离"失去语义，模型行为不可控</td></tr>
+        <tr><td>数据频繁变更 + 严格删除合规要求</td><td>数据即模型，治理成本高（索引需支持删除/重建）</td></tr>
+        <tr><td>标签噪声严重</td><td>噪声直接参与投票且没有正则化机制可抑制</td></tr>
+      </tbody>
+    </table></div>
+
+    <h3 id="ch4-4">4.4 面试考点（点击展开参考回答）</h3>
+    <details class="qa"><summary>惰性学习是什么？KNN 为什么算惰性学习？它是不是"不需要训练数据"？</summary>
+      <div class="body">
+        <p><b>要点</b>：惰性学习指没有显式的训练/参数估计过程，计算被延迟到预测阶段。KNN 训练阶段只是存储数据（O(1)），预测阶段才做距离计算、排序、投票。<b>它必须有训练数据</b>——数据就是模型，没有数据就没有任何预测能力。</p>
+        <p><b>追问</b>：KNN 的训练复杂度？→ 暴力版 O(1)；用 KD-Tree 时建树 O(n log n)，属于训练期开销，"训练"不再是零成本。</p>
+        <p><b>常见错误</b>：说"KNN 不需要训练数据"，或把 KD-Tree 建树说成"加速训练"。</p>
+      </div>
+    </details>
+    <details class="qa"><summary>K 为什么一般取奇数？奇数一定能避免平局吗？平局有哪几种处理方式？</summary>
+      <div class="body">
+        <p><b>要点</b>：奇数只在<b>二分类 + 等权多数投票</b>下保证无平局（票数之和为奇数）。多分类、加权投票、距离并列时仍可能平局。处理方式：奇数 K、最近邻优先、距离加权投票、类别先验/业务优先级、确定性兜底（最小类标签 / 固定种子）。</p>
+        <p><b>加分</b>：指出 sklearn 平局时返回索引最小的类别，属实现细节而非接口契约；需要严格受控时自行实现投票。</p>
+      </div>
+    </details>
+    <details class="qa"><summary>K 不能取 1 吗？K=1 的问题是什么？</summary>
+      <div class="body">
+        <p><b>要点</b>：不是"不能"，而是"不稳健"。K=1 时训练误差≈0（每个训练点离自己最近），但方差极大、对噪声与离群点极度敏感，决策边界是 Voronoi 拼图，容易过拟合。噪声低、类别可分时 K=1 也能用；工程上默认从较大 K 起搜，由交叉验证决定。</p>
+        <p><b>追问</b>：K 增大会怎样？→ 边界变平滑、偏差上升方差下降；K=n 退化为多数类（分类）/全局均值（回归），完全欠拟合。</p>
+      </div>
+    </details>
+    <details class="qa"><summary>为什么要归一化/标准化？min-max 与 Z-score 的区别？标准化有什么风险？</summary>
+      <div class="body">
+        <p><b>要点</b>：距离对所有维度等权累加，量级大的维度会支配距离（数学必然）。min-max 映射到固定区间 [0,1]，依赖 min/max、对离群值敏感；Z-score 使均值 0 方差 1，无界、相对稳健，是距离类算法的默认选择。</p>
+        <p><b>风险/不宜场景</b>：稀疏文本 + 余弦（破坏稀疏性）、树模型（无收益）、缩放参数在全量数据上估计会造成数据泄漏（必须放进 Pipeline）。</p>
+        <p><b>加分</b>：提到稳健缩放（中位数 + IQR）。</p>
+      </div>
+    </details>
+    <details class="qa"><summary>KD-Tree 的加速原理？为什么高维会退化？它加速训练还是预测？</summary>
+      <div class="body">
+        <p><b>要点</b>：对训练集递归按维度切分（中位数），形成超矩形区域的二叉树；查询时用"查询点到子区域的距离下界 &gt; 当前最近距离"整枝剪枝。加速的是<b>预测（近邻搜索）</b>，建树是训练期额外开销 O(n log n)。高维时距离集中、剪枝条件失效 → 退化为 O(n)。经验上维度超过约 20～30 收益基本消失，此时改用 Ball-Tree 或 ANN。</p>
+      </div>
+    </details>
+    <details class="qa"><summary>KNN 的时间/空间复杂度？怎么优化到能上线？</summary>
+      <div class="body">
+        <p><b>要点</b>：训练 O(1)（暴力）；预测 O(n·d) 计算 + O(n log K) 选邻居；空间 O(n·d)。</p>
+        <p><b>优化路线</b>：<br>① 向量化实现（去掉 Python 循环，用 BLAS）<br>② 部分选择代替全排序（堆 / argpartition）<br>③ 精确索引（KD-Tree / Ball-Tree，低维有效）<br>④ 近似最近邻（HNSW / IVF-PQ），允许少量精度损失换数量级加速<br>⑤ 降维 / 量化减少 d 与内存<br>⑥ 离线预计算候选 + 线上重排<br>⑦ 缓存热门查询<br>⑧ 分批 / GPU 检索。</p>
+      </div>
+    </details>
+    <details class="qa"><summary>KNN 为什么在不平衡数据上表现差？除了重采样还能做什么？</summary>
+      <div class="body">
+        <p><b>要点</b>：KNN 决策依赖局部密度，不平衡 = 密度不平衡，多数类在空间上包围少数类。除重采样外：换指标（macro-F1/PR-AUC/逐类 recall）、距离加权投票、调小 K、自定义类别权重投票（注意 sklearn 的 KNN 没有 class_weight）、代价敏感学习、换模型。</p>
+      </div>
+    </details>
+    <details class="qa"><summary>写代码题：手写 KNN，要求效率高且平局行为确定</summary>
+      <div class="body">
+        <p><b>要点</b>：不要用双重循环；用广播/矩阵乘法算距离矩阵；用 <code>argpartition</code> 取 top-K 而不是 <code>argsort</code>；对 K 个邻居排序后加权投票；<b>显式处理平局与 d=0</b>；注意 ||a−b||² 展开式可能产生负值需 clip。面试官往往就是看你有没有考虑这些细节。</p>
+      </div>
+    </details>
+    <details class="qa"><summary>KNN 回归为什么不能外推？加权 KNN 的权重怎么设计？d=0 怎么办？</summary>
+      <div class="body">
+        <p><b>外推</b>：输出是邻居标签的加权平均，数学上落在邻居标签最小值与最大值之间，不可能超出训练标签值域，也无法表达趋势/周期。</p>
+        <p><b>权重</b>：1/d、1/d²、高斯核 exp(−d²/2σ²)、秩权重 1/i。d=0 时精确命中直接返回该样本标签，或统用 1/(d+ε)。权衡：更强的局部性 vs 对近处噪声更敏感；且不影响搜索成本。</p>
+      </div>
+    </details>
+
+    <h3 id="ch4-5">4.5 学习延伸：从 KNN 到向量检索</h3>
+    <h4>KNN vs SVM vs 决策树：三种"归纳偏好"</h4>
+    <div class="tw"><table>
+      <thead><tr><th>维度</th><th>KNN</th><th>SVM</th><th>决策树</th></tr></thead>
+      <tbody>
+        <tr><td>模型形式</td><td>训练集本身（实例/非参数）</td><td>全局超平面 + 核函数（参数化、稀疏）</td><td>递归的轴对齐划分（树结构）</td></tr>
+        <tr><td>训练开销</td><td>O(1)，无显式训练</td><td>高（凸二次规划）</td><td>中（每次挑最优划分）</td></tr>
+        <tr><td>预测开销</td><td>高 O(n·d)</td><td>低（只与支持向量个数相关）</td><td>低（树深度）</td></tr>
+        <tr><td>对特征尺度</td><td><b>极敏感</b></td><td>敏感（RBF 核尤甚）</td><td>不敏感</td></tr>
+        <tr><td>对无关特征</td><td>敏感（直接污染距离）</td><td>中等（正则化可抑制部分权重）</td><td>较好（划分时自会选择有效特征）</td></tr>
+        <tr><td>混合类型特征</td><td>差（需自定度量）</td><td>需编码</td><td><b>好</b>（天然支持）</td></tr>
+        <tr><td>决策边界</td><td>局部、任意形状</td><td>由核决定的全局光滑边界</td><td>轴对齐折线台阶</td></tr>
+        <tr><td>可解释性</td><td>局部证据样本</td><td>支持向量 + 权重（较弱）</td><td><b>强</b>（if-else 规则）</td></tr>
+        <tr><td>外推能力</td><td>无（回归受限）</td><td>有（线性外推）</td><td>弱（受划分值域限制）</td></tr>
+        <tr><td>典型适用</td><td>相似性检索<br>异常检测<br>小样本基线</td><td>中小样本、高维稀疏（文本）、要求间隔最大化</td><td>结构化/表格数据（尤其配合集成）</td></tr>
+      </tbody>
+    </table></div>
+    <div class="quote"><b>一句话总结</b>：KNN 相信"局部记忆"，SVM 相信"最大间隔的全局边界"，决策树相信"递归划分的特征重要性"。理解这三者的差异，比记住各自公式更能帮你做技术选型。</div>
+
+    <h4>近似最近邻（ANN）：为什么必须放弃精确解</h4>
+    <p>高维空间中精确最近邻没有亚线性的一般算法（维度灾难）。工程上于是做<b>精度-速度-内存的三角权衡</b>，允许少量召回损失换取数量级加速：</p>
+    <div class="tw"><table>
+      <thead><tr><th>方法</th><th>思路</th><th>特点</th></tr></thead>
+      <tbody>
+        <tr><td>KD-Tree / Ball-Tree</td><td>空间划分 + 剪枝</td><td><b>精确</b>；低维快，高维退化</td></tr>
+        <tr><td>LSH（局部敏感哈希）</td><td>多个哈希函数把"近的点"高概率装进同一个桶</td><td>理论漂亮、可证明<br>高维需要大量哈希表，内存与准备开销大</td></tr>
+        <tr><td>倒排索引 IVF</td><td>先聚类成若干桶，查询只搜最近的 n<sub>probe</sub> 个桶</td><td>快、实现简单；漏检取决于探桶数</td></tr>
+        <tr><td>乘积量化 PQ</td><td>把高维向量分段，每段用短码近似（码本）</td><td>内存压缩几十倍，距离近似计算<br>常与 IVF 组合成 <b>IVF-PQ</b>（FAISS 核心）</td></tr>
+        <tr><td>HNSW（分层可导航小世界图）</td><td>多层邻近图：上层稀疏当"高速公路"，下层稠密做精修</td><td>当前主流，高召回 + 低延迟<br>参数 M / efConstruction / efSearch 控制精度与速度<br>内存占用较大</td></tr>
+      </tbody>
+    </table></div>
+    <div class="note"><b>HNSW 参数直觉</b>：M = 每节点邻居数（越大越准越占内存）；efConstruction = 建图搜索宽度（越大图质量越好、建图越慢）；efSearch = 查询搜索宽度（越大越准越慢）——<b>这是能在运行时调节"精度 ↔ 延迟"的旋钮之一</b>（IVF 的 n_probe 同理，也是运行时旋钮），工程上非常实用。</div>
+
+    <h4>向量数据库与 RAG：KNN 的现代形态</h4>
+    <p>把"embedding 向量 + ANN 索引 + 元数据过滤"打包成服务，就是<b>向量数据库</b>：Milvus、Qdrant、pgvector、FAISS（库）、Chroma 等。它们的核心操作仍然是最经典的 KNN：<b>给定查询向量，按距离度量找 Top-K 相似向量</b>。所以：</p>
+    <ul>
+      <li>检索语义：距离度量 + Top-K + "相似即相关" —— 与 1950 年代的 KNN 判断完全一致</li>
+      <li><b>RAG（检索增强生成）</b>：文档切块 → embedding → 存向量库 → 查询时用 ANN 取回 Top-K 片段 → 交给大模型生成答案。<b>KNN 是 RAG 的检索内核</b></li>
+      <li>关注点从"算法"变成"系统"：召回率@K、延迟、索引内存、批量重建、过滤条件与向量检索的联合优化</li>
+    </ul>
+    <h4>度量学习：把"怎么算距离"变成学出来的</h4>
+    <p>KNN 最大的软肋是"距离由人设计"。<b>度量学习</b>反过来：用数据学习一个映射 f，使得在 f(x) 空间里"同标签距离近、异标签距离远"（对比学习、三元组损失）。于是现代范式变成：<b>神经网络学表示 + 距离度量在 embedding 空间生效 + ANN 做检索</b>。这不是抛弃 KNN，而是把 KNN 从原始特征空间搬到了学出来的表示空间——KNN 的思想在深度学习时代反而更重要了。</p>
+
+    <h3>4.6 一页速查卡（Cheat Sheet）</h3>
+    <div class="tw"><table>
+      <tbody>
+        <tr><th style="width:26%">一句话定义</th><td>找最近的 K 个样本，按投票/平均决定输出</td></tr>
+        <tr><th>三要素</th><td>距离度量、K 值、决策规则</td></tr>
+        <tr><th>学习类型</th><td>惰性学习（无显式训练过程，必须有训练数据）</td></tr>
+        <tr><th>复杂度</th><td>训练 O(1) / 预测 O(n·d)；KD-Tree 建树 O(n log n)、低维查询期望 O(log n)</td></tr>
+        <tr><th>默认配置</th><td>标准化 + 欧氏距离 + K ≈ 5～15（从 √n 起搜）+ 交叉验证 + macro-F1（不平衡时）</td></tr>
+        <tr><th>必做</th><td>标准化（放 Pipeline 内）、CV 选 K、显式定义平局策略、不平衡时换指标</td></tr>
+        <tr><th>禁止</th><td>用测试集选 K<br>在稀疏文本上做 Z-score<br>高维海量数据用暴力搜索上线<br>把 predict_proba 当校准概率</td></tr>
+        <tr><th>三个必考纠错</th><td><br>① 不是"不需要训练数据"<br>② 不是"KD-Tree 加速训练"<br>③ "归一化"≠"标准化"</td></tr>
+        <tr><th>何时用</th><td>中小规模 + 离线批处理 / 相似性检索（配 ANN）/ 异常检测 / 小样本基线</td></tr>
+        <tr><th>何时不用</th><td>大规模在线低延迟、超高维、需外推、需全局规则、极端不平衡</td></tr>
+      </tbody>
+    </table></div>
+  </section>
+
+  <section class="chapter" id="ch5-1">
+    <h2><span class="num">05</span> 小结与课后思考题 <span class="tag lv4">作业配套</span></h2>
+    <h3>5.1 分层小结</h3>
+    <h4>入门层（第1章）</h4>
+    <ul>
+      <li>唯一假设：相似的输入有相似的输出；KNN 是"现场问邻居"，不是"先学一个公式"</li>
+      <li>惰性学习：<b>有训练数据、没有训练过程</b>，计算全部推迟到预测阶段</li>
+      <li>三要素：距离度量、K 值、决策规则</li>
+    </ul>
+    <h4>原理层（第2章）</h4>
+    <ul>
+      <li>距离定义了"相似"：L1 稳健、L2 默认、余弦看方向、马氏去相关</li>
+      <li>量纲不一致会让距离退化到"只看量级最大的那一维"；<b>归一化（有界）≠ 标准化（无界）</b></li>
+      <li>K 是复杂度旋钮：小 K 过拟合、大 K 欠拟合，必须交叉验证选</li>
+      <li>奇数 K 只在"二分类 + 等权投票"下消除平局；平局处理必须显式定义</li>
+      <li>加权 KNN：用 1/d 放大近邻话语权，代价是更怕近处噪声</li>
+    </ul>
+    <h4>工程层（第3章）</h4>
+    <ul>
+      <li>流程：标准化 → 算距离 → 部分选择 top-K → 投票/平均；预测 O(nd)、空间 O(nd)</li>
+      <li>优化：向量化（BLAS）、argpartition/堆、KD-Tree/Ball-Tree（<b>加速预测，不是训练</b>）、ANN</li>
+      <li>高维下 KD-Tree 剪枝失效退化为 O(n)；维度灾难是根本限制</li>
+      <li>不平衡数据偏向多数类；<code>KNeighborsClassifier</code> 没有 <code>class_weight</code></li>
+      <li>数据泄漏红线：缩放器只能 fit 训练集，且必须放进 Pipeline</li>
+    </ul>
+    <h4>进阶层（第4章）</h4>
+    <ul>
+      <li>价值：普适的"相似性"视角；限制：知识不压缩 + 推理昂贵</li>
+      <li>选型标准见 4.3；现代延续：embedding + ANN（HNSW / IVF-PQ）+ 向量数据库 + RAG + 度量学习</li>
+    </ul>
+
+    <h3 id="ch5-2">5.2 课后思考题（5 题，点击展开参考解答）</h3>
+    <details class="q"><summary>Q1（工程分析）实时推荐场景的技术选型</summary>
+      <div class="body">
+        <p>某电商要用 KNN 思想做"实时猜你喜欢"：1 亿条商品向量，每条 128 维，要求 P99 延迟 &lt; 50 ms、QPS = 2000。<br>① 直接用 <code>sklearn.neighbors.KNeighborsClassifier</code>（暴力搜索）是否可行？请用数量级估算说明（计算量 + 内存）。<br>② 给出至少三条改造方案，并分别说明代价。<br>③ 若业务允许 3% 召回损失，你会怎么改？若不允许任何召回损失呢？</p>
+        <div class="miss"><b>参考解答要点</b><br>
+        ① 不可行。计算量：单次查询 n×d = 10⁸ × 128 ≈ 1.28 × 10¹⁰ 次乘加；内存：10⁸ × 128 × 4 B ≈ <b>51.2 GB</b>（float32），单机难以常驻，且每次查询都要全量扫描。即便多核并行，2000 × 1.28 × 10¹⁰ 也远超单机算力，量级上不成立。<br>
+        ② 方案：<b>ANN 索引</b>（HNSW：召回高延迟低，代价是索引内存大、建图慢、需调 M/efSearch）；<b>IVF-PQ</b>（聚类 + 乘积量化：内存压缩几十倍、速度极快，代价是量化误差导致召回损失）；<b>降维</b>（PCA/自编码器降到 32～64 维，代价是损失部分可分性）；<b>两阶段</b>（离线预计算候选 + 线上轻量重排，代价是新鲜度/一致性管理复杂）；<b>GPU 检索</b>（FAISS-GPU，代价是硬件成本与批处理调度）。<br>
+        ③ 允许 3% 损失 → 上 ANN，把 efSearch / n_probe 调到刚好满足召回指标的最小值，并监控线上召回率与点击率。不允许任何损失 → 精确性只能保留在<b>小候选集</b>上：用 ANN 做召回（可取数千候选），再对小集合做精确重排（两阶段），这是工业界常用折中；纯精确在这规模上不现实。</div>
+      </div>
+    </details>
+    <details class="q"><summary>Q2（原理辨析）"KNN 不需要训练数据，是最简单的机器学习算法"</summary>
+      <div class="body">
+        <p>请指出这句话的两处错误，并从<b>惰性学习、复杂度分布、模型容量</b>三个角度说明为什么"简单"这个评价有误导性。</p>
+        <div class="miss"><b>参考解答要点</b><br>
+        错误一："不需要训练数据"——KNN 必须有训练数据，数据就是模型；它只是不需要显式的训练过程。<br>
+        错误二："最简单"——概念简单，但工程复杂度不低：预测 O(nd)、内存 O(nd)，还要处理尺度、K 选择、平局、不平衡、维度灾难、索引结构、数据泄漏等一整套问题。<br>
+        三个角度：<br>① 惰性学习 → 训练成本被搬到推理，线上延迟成为瓶颈<br>② 复杂度分布 → 训练 O(1) / 推理 O(nd)，与"训练贵、推理便宜"的常规直觉相反，部署形态完全不同<br>③ 模型容量 → 容量随 n 增长（非参数化），不能压缩存储，泛化依赖数据密度，高维下需要指数级样本量。结论：<b>KNN 是"定义简单、工程不简单"的算法。</b></div>
+      </div>
+    </details>
+    <details class="q"><summary>Q3（实验设计）如何证明"问题出在尺度上"</summary>
+      <div class="body">
+        <p>你在数据集 A 上得到 macro-F1 = 0.92，在数据集 B 上只有 0.71，怀疑是特征尺度问题。请设计实验方案验证（要求：对比基线、控制变量、评估方式，并说明如何排除数据泄漏）。</p>
+        <div class="miss"><b>参考解答要点</b><br>
+        <b>对比组</b>：固定模型与数据划分（同一 random_state、同一 stratify、同一 CV 折），只改预处理：<br>① 原始 + L2<br>② Z-score + L2<br>③ min-max + L2<br>④ 稳健缩放（中位数 + IQR）+ L2<br>⑤ 若含离群值再对比 L1。<br>
+        <b>控制变量</b>：模型、K 搜索区间、CV 折数、评估指标保持一致；<b>scaler 必须放进 Pipeline</b>，否则 CV 分数虚高、结论不可信。<br>
+        <b>诊断证据（关键）</b>：不只看分数，看四件事：<br>① <b>标准化前后分数差距</b>（主证据，本机实测 0.905 → 0.968）<br>② 各特征量级（std / 极差比值）<br>③ 逐类 recall（排除不平衡干扰）<br>④ 只保留量级最大那一维做消融。"K-分数曲线"只能当旁证：不要把"标准化后曲线一定变单峰"当必要条件——尺度问题与曲线形状没有必然联系。若标准化前后分数基本不变，问题在别处。<br>
+        <b>排除其他原因</b>：类别不平衡（已用 macro-F1，并检查逐类 recall）；维度/特征数（消融：只保留量级最大的那一维，若性能与全特征接近，正是"距离被单维支配"的证据）；噪声/错标（查重复样本与离群点）；分布漂移（若是漂移而非尺度，标准化救不了）。<br>
+        <b>结论标准</b>：只有"标准化前后差异显著 + K 曲线形态从异常变正常"同时成立，才能下"是尺度问题"的结论。</div>
+      </div>
+    </details>
+    <details class="q"><summary>Q4（原理辨析）K 与两条误差曲线</summary>
+      <div class="body">
+        <p>K 从 1 增大到 n，训练误差与测试误差分别如何变化？为什么 K=1 时训练误差接近 0？K=n 时会发生什么？</p>
+        <div class="miss"><b>参考解答要点</b><br>
+        K=1 时训练误差≈0：每个训练样本与自己的距离为 0，必然把自己选为最近邻，只要没有重复样本且标签唯一，训练集上预测永远正确。这<b>不能说明模型好</b>，恰是过拟合的信号。<br>
+        训练误差随 K 增大而上升（总体趋势，非严格单调；邻居里混入越多样本，局部拟合能力下降）；K=n 时分类退化为"恒预测多数类"，训练误差 = 1 − 多数类占比（回归退化为恒定全局均值）。<br>
+        测试误差呈 <b>U 形</b>（先降后升）：K 很小时方差大（对噪声敏感），K 很大时偏差大（过于平滑）。最优点在谷底附近，且随样本量增大而移动（数据越密，最优 K 通常越大）。<br>
+        结论：<b>训练误差不能作为选 K 的依据</b>（K=1 训练误差最小但泛化最差），必须用验证集/交叉验证。</div>
+      </div>
+    </details>
+    <details class="q"><summary>Q5（工程取舍）让预测"确定性"可复现</summary>
+      <div class="body">
+        <p>线上服务发现同一用户、同一特征输入，两次调用返回的类别偶尔不同。请列举所有可能原因，并给出让系统确定性的方案。</p>
+        <div class="miss"><b>参考解答要点</b><br>
+        <b>可能原因</b>：<br>① 平局处理依赖未固定顺序/随机（或依赖会变化的类别索引顺序）<br>② 浮点误差 + 并行归约顺序不同 → 距离排序在极接近处抖动<br>③ 训练集发生变化（增量入库、删样本）但模型版本没变<br>④ 使用近似检索（HNSW/IVF），参数或索引状态变化<br>⑤ 预处理版本不一致（scaler 参数、特征顺序、缺失值填充策略变更）<br>⑥ 缓存命中/未命中走了不同代码路径<br>⑦ 多线程/GPU 归约不确定。<br>
+        <b>确定性方案</b>：显式定义并固定平局规则（确定性规则，禁止无种子随机）；对"距离相等"的邻居用稳定排序 + 次键（样本 ID）打破；把预处理 + 模型 + 平局策略打包成版本化产物（保存整个 Pipeline）并固定版本；精确检索或固定 ANN 索引快照（含随机种子与索引参数）；上线前做"同输入重复调用 1000 次结果完全一致"的回归测试；记录每次预测的模型版本/索引版本/预处理版本以便审计。</div>
+      </div>
+    </details>
+
+    <h3 id="ch5-3">5.3 自评量表（能全部勾选说明你真的掌握了）</h3>
+    <label class="check"><input type="checkbox"><span>我能准确说出"惰性学习"的含义，并避免"KNN 不需要训练数据"这个错误</span></label>
+    <label class="check"><input type="checkbox"><span>给定 5 个样本和查询点，我能手算距离、排序、投票，并判断是否平局</span></label>
+    <label class="check"><input type="checkbox"><span>我能针对文本 / 数值 / 混合特征选择合适的距离度量并说明理由</span></label>
+    <label class="check"><input type="checkbox"><span>我能区分归一化与标准化，并写出不会数据泄漏的 Pipeline 代码</span></label>
+    <label class="check"><input type="checkbox"><span>我能用交叉验证选 K，并解释 K-分数曲线的形态</span></label>
+    <label class="check"><input type="checkbox"><span>我能手写向量化 KNN（argpartition、平局、d=0 处理）</span></label>
+    <label class="check"><input type="checkbox"><span>我能写出训练/预测/空间复杂度，并估算大规模场景是否可行</span></label>
+    <label class="check"><input type="checkbox"><span>我能准确解释 KD-Tree 加速的是预测而非训练，并说明高维退化原因</span></label>
+    <label class="check"><input type="checkbox"><span>我能指出 KNN 的不平衡缺陷并给出至少三种缓解手段</span></label>
+    <label class="check"><input type="checkbox"><span>我能对"该用/不该用 KNN"的场景给出有依据的判断</span></label>
+    <label class="check"><input type="checkbox"><span>我能说清 ANN（HNSW/IVF-PQ）、向量数据库、RAG 与 KNN 的关系</span></label>
+  </section>
+
+  <section class="chapter" id="appx">
+    <h2><span class="num">A</span> 附录：纠错表与术语对照</h2>
+    <h3>附录 A 常见错误表述纠错表（自查用）</h3>
+    <div class="tw"><table>
+      <thead><tr><th style="width:34%">× 错误表述</th><th>√ 正确表述</th></tr></thead>
+      <tbody>
+        <tr><td>KNN 不需要训练数据</td><td>KNN 不需要训练<i>过程</i>，但预测时必须保留全部（或索引后的）训练数据</td></tr>
+        <tr><td>KNN 是最简单的算法，没有复杂度问题</td><td>定义简单；训练 O(1) 但预测 O(n·d)、空间 O(n·d)，大规模下不可用</td></tr>
+        <tr><td>KD-Tree 用来加速 KNN 的训练</td><td>KD-Tree 是查询索引：增加训练期建树开销，降低预测期搜索开销</td></tr>
+        <tr><td>归一化和标准化是同一件事</td><td>min-max 归一化映射到固定区间（依赖 min/max、怕离群值）<br>Z-score 标准化减均值除标准差（无界、相对稳健）</td></tr>
+        <tr><td>只要 K 取奇数就不会有平局</td><td>仅"二分类 + 等权多数投票"成立；多分类、加权投票、距离并列仍会平局</td></tr>
+        <tr><td>K 取 1 效果最好因为训练误差是 0</td><td>K=1 训练误差≈0 恰是过拟合信号；方差极大、对噪声敏感</td></tr>
+        <tr><td>KNN 输出的概率就是真实概率</td><td><code>predict_proba</code> 是邻居票数比例，未校准，不能直接当概率用</td></tr>
+        <tr><td>用了余弦距离就不用管特征尺度</td><td>余弦只对整体缩放不变；逐维缩放仍会改变方向，通常仍需标准化或显式 L2 归一化</td></tr>
+        <tr><td>KNN 回归可以预测超出训练范围的值</td><td>输出是邻居标签的加权平均，必然落在邻居标签值域内，无法外推</td></tr>
+        <tr><td>不平衡数据下看 accuracy 就够了</td><td>全预测多数类也能得到高 accuracy；必须看 macro-F1、逐类 recall、PR-AUC</td></tr>
+      </tbody>
+    </table></div>
+    <h3>附录 B 术语中英对照</h3>
+    <div class="tw"><table>
+      <thead><tr><th>中文</th><th>English</th><th>中文</th><th>English</th></tr></thead>
+      <tbody>
+        <tr><td>近邻 / 邻居</td><td>neighbor</td><td>维度灾难</td><td>curse of dimensionality</td></tr>
+        <tr><td>惰性学习</td><td>lazy learning</td><td>暴力搜索</td><td>brute force search</td></tr>
+        <tr><td>积极学习</td><td>eager learning</td><td>KD 树</td><td>KD-tree</td></tr>
+        <tr><td>非参数模型</td><td>non-parametric model</td><td>球树</td><td>Ball-tree</td></tr>
+        <tr><td>距离度量</td><td>distance metric</td><td>近似最近邻</td><td>approximate nearest neighbor (ANN)</td></tr>
+        <tr><td>欧氏距离</td><td>Euclidean distance (L2)</td><td>局部敏感哈希</td><td>locality-sensitive hashing (LSH)</td></tr>
+        <tr><td>曼哈顿距离</td><td>Manhattan distance (L1)</td><td>乘积量化</td><td>product quantization (PQ)</td></tr>
+        <tr><td>闵可夫斯基距离</td><td>Minkowski distance (Lp)</td><td>分层可导航小世界</td><td>HNSW</td></tr>
+        <tr><td>切比雪夫距离</td><td>Chebyshev distance (L∞)</td><td>度量学习</td><td>metric learning</td></tr>
+        <tr><td>余弦相似度</td><td>cosine similarity</td><td>向量数据库</td><td>vector database</td></tr>
+        <tr><td>马氏距离</td><td>Mahalanobis distance</td><td>数据泄漏</td><td>data leakage</td></tr>
+        <tr><td>归一化</td><td>normalization (min-max)</td><td>交叉验证</td><td>cross-validation</td></tr>
+        <tr><td>标准化</td><td>standardization (Z-score)</td><td>偏差-方差权衡</td><td>bias-variance tradeoff</td></tr>
+        <tr><td>多数投票</td><td>majority voting</td><td>平局</td><td>tie</td></tr>
+        <tr><td>加权投票</td><td>weighted voting</td><td>过拟合 / 欠拟合</td><td>overfitting / underfitting</td></tr>
+      </tbody>
+    </table></div>
+    <h3>附录 C 参考文献</h3>
+    <ul style="font-size:var(--fs-md)">
+      <li>Cover, T., &amp; Hart, P. (1967). <i>Nearest neighbor pattern classification</i>. IEEE Transactions on Information Theory, 13(1), 21–27.</li>
+      <li>Stone, C. J. (1977). <i>Consistent nonparametric regression</i>. The Annals of Statistics, 5(4), 595–620.</li>
+      <li>Bentley, J. L. (1975). <i>Multidimensional binary search trees used for associative searching</i>. Communications of the ACM, 18(9), 509–517.</li>
+      <li>Friedman, J. H., Bentley, J. L., &amp; Finkel, R. A. (1977). <i>An algorithm for finding best matches in logarithmic expected time</i>. ACM TOMS, 3(3), 209–226.</li>
+      <li>Omohundro, S. M. (1989). <i>Five balltree construction algorithms</i>. ICSI Technical Report TR-89-063.</li>
+      <li>Muja, M., &amp; Lowe, D. G. (2014). <i>Scalable nearest neighbor algorithms for high dimensional data</i>. IEEE TPAMI, 36(11), 2227–2240.</li>
+      <li>Gionis, A., Indyk, P., &amp; Motwani, R. (1999). <i>Similarity search in high dimensions via hashing</i>. VLDB.</li>
+      <li>Jégou, H., Douze, M., &amp; Schmid, C. (2011). <i>Product quantization for nearest neighbor search</i>. IEEE TPAMI, 33(1), 117–128.</li>
+      <li>Malkov, Y. A., &amp; Yashunin, D. A. (2018). <i>Efficient and robust approximate nearest neighbor search using hierarchical navigable small world graphs</i>. IEEE TPAMI, 42(4), 824–836.</li>
+      <li>Johnson, J., Douze, M., &amp; Jégou, H. (2019). <i>Billion-scale similarity search with GPUs</i>. IEEE Transactions on Big Data.</li>
+      <li>Hastie, T., Tibshirani, R., &amp; Friedman, J. <i>The Elements of Statistical Learning</i> (2nd ed.). Springer.（2.3.2、13.3 节）</li>
+      <li>李航.《统计学习方法》（第2版）. 清华大学出版社.（第 3 章 k 近邻法）</li>
+      <li>周志华.《机器学习》. 清华大学出版社.（第 10 章"降维与度量学习"）</li>
+      <li>scikit-learn 官方文档：<i>Nearest Neighbors</i>、<i>Preprocessing data</i>（最权威的落地参考）</li>
+    </ul>
+  </section>
+
+  </main>
+</div>
+
+<footer>
+  <div class="in">
+    <div><b>KNN 交互式自学教程</b> · v1.5（2026-10-12 断行 / 布局 / 标点修订）· 面向计算机专业本科机器学习课程自学<br>
+      单文件纯前端实现（HTML + CSS + JavaScript，无外部依赖、无后端），双击即可运行。</div>
+    <div style="text-align:right">6 个交互模块 · 6 段完整代码 · 5 道思考题<br>
+      配套：<b>KNN自学教程.md</b>（完整文稿）、<b>KNN自学教程-提示词包.md</b></div>
+  </div>
+</footer>
+
+<script>
+(function () {
+"use strict";
+
+/* =========================================================
+   0. 通用工具
+   ========================================================= */
+var NL = String.fromCharCode(10);
+function esc(s) {
+  return String(s).split("&").join("&amp;").split("<").join("&lt;").split(">").join("&gt;");
+}
+function clamp(v, a, b) { return v < a ? a : (v > b ? b : v); }
+function rnd(a, b) { return a + Math.random() * (b - a); }
+function gauss() {
+  var u = 0, v = 0;
+  while (u === 0) u = Math.random();
+  while (v === 0) v = Math.random();
+  return Math.sqrt(-2 * Math.log(u)) * Math.cos(2 * Math.PI * v);
+}
+function fmt(x, n) { return (Math.round(x * Math.pow(10, n)) / Math.pow(10, n)).toFixed(n); }
+
+var A_STROKE = "#ce2c31", A_FILL = "#e5484d";
+var B_STROKE = "#0d74ce", B_FILL = "#0090ff";
+function cls(y) { return y === "A" ? { stroke: A_STROKE, fill: A_FILL } : { stroke: B_STROKE, fill: B_FILL }; }
+
+/* 距离度量：全部基于二维向量 [x, y] */
+function dL2(a, b) { return Math.sqrt((a[0] - b[0]) * (a[0] - b[0]) + (a[1] - b[1]) * (a[1] - b[1])); }
+function dL1(a, b) { return Math.abs(a[0] - b[0]) + Math.abs(a[1] - b[1]); }
+function dLinf(a, b) { return Math.max(Math.abs(a[0] - b[0]), Math.abs(a[1] - b[1])); }
+function dCosine(a, b) {
+  var dot = a[0] * b[0] + a[1] * b[1];
+  var na = Math.sqrt(a[0] * a[0] + a[1] * a[1]), nb = Math.sqrt(b[0] * b[0] + b[1] * b[1]);
+  if (na === 0 || nb === 0) return 1;
+  return 1 - dot / (na * nb);
+}
+
+/* 生成两类高斯团簇样本（坐标即"特征空间"，单位=像素） */
+function sampleClusters(nA, nB, w, h) {
+  var pts = [], i;
+  var cA = [w * 0.34, h * 0.38], cB = [w * 0.66, h * 0.62];
+  var sA = [w * 0.11, h * 0.13], sB = [w * 0.12, h * 0.14];
+  for (i = 0; i < nA; i++) pts.push({ p: [clamp(cA[0] + gauss() * sA[0], 12, w - 12), clamp(cA[1] + gauss() * sA[1], 12, h - 12)], y: "A" });
+  for (i = 0; i < nB; i++) pts.push({ p: [clamp(cB[0] + gauss() * sB[0], 12, w - 12), clamp(cB[1] + gauss() * sB[1], 12, h - 12)], y: "B" });
+  return pts;
+}
+
+/* 取 top-K 邻居（教学版：排序 + 切片；工程版见 3.2/3.3） */
+function neighborsOf(pts, q, k, metric) {
+  var f = metric === "l1" ? dL1 : (metric === "linf" ? dLinf : dL2);
+  var arr = [];
+  for (var i = 0; i < pts.length; i++) arr.push({ i: i, y: pts[i].y, p: pts[i].p, d: f(q, pts[i].p) });
+  arr.sort(function (a, b) { return a.d - b.d; });
+  return arr.slice(0, Math.min(k, arr.length));
+}
+
+/* 多数投票（等权）—— 交互动画按需求只实现基础多数投票 */
+function vote(nb) {
+  var score = {}, order = [];
+  for (var i = 0; i < nb.length; i++) {
+    var y = nb[i].y;
+    if (!(y in score)) { score[y] = 0; order.push(y); }
+    score[y] += 1;
+  }
+  var best = -1, winners = [];
+  for (var j = 0; j < order.length; j++) {
+    var c = order[j];
+    if (score[c] > best) { best = score[c]; winners = [c]; }
+    else if (score[c] === best) winners.push(c);
+  }
+  return { score: score, order: order, best: best, winners: winners, tie: winners.length > 1 };
+}
+
+/* 画点 / 画线 基础绘制 */
+function drawDot(ctx, p, y, r) {
+  var c = cls(y);
+  ctx.beginPath(); ctx.arc(p[0], p[1], r, 0, Math.PI * 2);
+  ctx.fillStyle = c.fill; ctx.fill();
+  ctx.lineWidth = 1.6; ctx.strokeStyle = "#fff"; ctx.stroke();
+}
+function drawSeg(ctx, a, b, color, width, dash) {
+  ctx.save();
+  ctx.setLineDash(dash || []);
+  ctx.beginPath(); ctx.moveTo(a[0], a[1]); ctx.lineTo(b[0], b[1]);
+  ctx.strokeStyle = color; ctx.lineWidth = width || 1.5; ctx.stroke();
+  ctx.restore();
+}
+function canvasXY(cv, ev) {
+  var r = cv.getBoundingClientRect();
+  var sx = cv.width / r.width, sy = cv.height / r.height;
+  var cx = (ev.touches ? ev.touches[0].clientX : ev.clientX);
+  var cy = (ev.touches ? ev.touches[0].clientY : ev.clientY);
+  return [ (cx - r.left) * sx, (cy - r.top) * sy ];
+}
+
+/* =========================================================
+   1. 无正则的极简语法高亮（避免任何转义陷阱）
+   ========================================================= */
+var KEYWORDS = ["def","return","if","elif","else","for","while","in","import","from","as","class","and","or","not",
+  "None","True","False","lambda","print","with","try","except","is","function","var","let","const","new","this",
+  "typeof","true","false","null","undefined","break","continue","of","do","switch","case","ALGORITHM","FOR","END",
+  "IF","ELSE","RETURN","INPUT","OUTPUT","SWITCH","CASE","WHILE","TO","push","pop","size","top"];
+function isWordChar(ch) {
+  return (ch >= "a" && ch <= "z") || (ch >= "A" && ch <= "Z") || (ch >= "0" && ch <= "9") || ch === "_" || ch === "$";
+}
+function highlight(code) {
+  var out = "", i = 0, n = code.length, c, j, w;
+  while (i < n) {
+    c = code.charAt(i);
+    if (c === "#" || (c === "/" && code.charAt(i + 1) === "/")) {          /* 注释：Python 用 #，JS 用 // */
+      j = i; while (j < n && code.charAt(j) !== NL) j++;
+      out += '<span class="tk-cm">' + esc(code.slice(i, j)) + "</span>"; i = j; continue;
+    }
+    if (c === '"' || c === "'") {                                          /* 字符串 */
+      var q = c; j = i + 1;
+      while (j < n && code.charAt(j) !== q && code.charAt(j) !== NL) j++;
+      if (j < n && code.charAt(j) === q) j++;
+      out += '<span class="tk-st">' + esc(code.slice(i, j)) + "</span>"; i = j; continue;
+    }
+    if (c >= "0" && c <= "9") {                                            /* 数字 */
+      j = i; while (j < n && ((code.charAt(j) >= "0" && code.charAt(j) <= "9") || code.charAt(j) === ".")) j++;
+      out += '<span class="tk-nu">' + esc(code.slice(i, j)) + "</span>"; i = j; continue;
+    }
+    if (isWordChar(c)) {                                                   /* 标识符 / 关键字 */
+      j = i; while (j < n && isWordChar(code.charAt(j))) j++;
+      w = code.slice(i, j);
+      out += KEYWORDS.indexOf(w) >= 0 ? '<span class="tk-kw">' + esc(w) + "</span>" : esc(w);
+      i = j; continue;
+    }
+    out += esc(c); i++;
+  }
+  return out;
+}
+var codeEls = document.querySelectorAll(".codeblock code");
+for (var ci = 0; ci < codeEls.length; ci++) codeEls[ci].innerHTML = highlight(codeEls[ci].textContent);
+
+/* 复制按钮 */
+var copyBtns = document.querySelectorAll(".copy");
+function bindCopy(btn) {
+  btn.addEventListener("click", function () {
+    var box = btn.closest(".codeblock"), code = box ? box.querySelector("code") : null;
+    if (!code) return;
+    var text = code.textContent, done = function () { btn.textContent = "已复制 √"; setTimeout(function () { btn.textContent = "复制"; }, 1400); };
+    if (navigator.clipboard && navigator.clipboard.writeText) {
+      navigator.clipboard.writeText(text).then(done, function () { fallback(text, done); });
+    } else fallback(text, done);
+  });
+}
+function fallback(text, cb) {
+  var ta = document.createElement("textarea");
+  ta.value = text; ta.style.position = "fixed"; ta.style.opacity = "0";
+  document.body.appendChild(ta); ta.select();
+  try { document.execCommand("copy"); } catch (e) {}
+  document.body.removeChild(ta); cb();
+}
+for (var cbi = 0; cbi < copyBtns.length; cbi++) bindCopy(copyBtns[cbi]);
+
+/* =========================================================
+   2. 阅读进度条 + 目录高亮（scrollspy）
+   ========================================================= */
+var bar = document.getElementById("progress");
+var tocLinks = document.querySelectorAll(".toc a");
+var sections = [];
+for (var ti = 0; ti < tocLinks.length; ti++) {
+  var id = tocLinks[ti].getAttribute("href").slice(1);
+  var el = document.getElementById(id);
+  if (el) sections.push({ a: tocLinks[ti], el: el });
+}
+function onScroll() {
+  var st = window.pageYOffset || document.documentElement.scrollTop;
+  var dh = document.documentElement.scrollHeight - window.innerHeight;
+  bar.style.width = (dh > 0 ? clamp(st / dh, 0, 1) * 100 : 0) + "%";
+  var cur = null;
+  for (var i = 0; i < sections.length; i++) if (sections[i].el.getBoundingClientRect().top <= 130) cur = sections[i];
+  for (var j = 0; j < sections.length; j++) sections[j].a.className = (cur === sections[j]) ? "active" : "";
+}
+window.addEventListener("scroll", onScroll, { passive: true });
+window.addEventListener("resize", onScroll);
+onScroll();
+
+/* =========================================================
+   3. Hero：K=3 的"现场投票"动画（测试点自动游走）
+   ========================================================= */
+(function hero() {
+  var cv = document.getElementById("heroCanvas");
+  if (!cv) return;
+  var ctx = cv.getContext("2d"), W = cv.width, H = cv.height;
+  var RED = "#e5484d", BLUE = "#0090ff", MARK = "#6e56cf";
+  var pts = [], i;
+  for (i = 0; i < 16; i++) pts.push({ p: [rnd(40, W * 0.55), rnd(30, H - 30)], y: "A" });
+  for (i = 0; i < 16; i++) pts.push({ p: [rnd(W * 0.55, W - 40), rnd(30, H - 30)], y: "B" });
+  var t = 0;
+  function step() {
+    t += 0.012;
+    var q = [W * (0.5 + 0.42 * Math.sin(t * 0.9)), H * (0.5 + 0.38 * Math.sin(t * 1.7 + 1))];
+    ctx.clearRect(0, 0, W, H);
+    ctx.fillStyle = "rgba(255,255,255,.03)";
+    ctx.fillRect(0, 0, W, H);
+    var nb = neighborsOf(pts, q, 3, "l2");
+    var r = vote(nb);
+    for (i = 0; i < nb.length; i++) drawSeg(ctx, q, nb[i].p, "rgba(110,86,207,.55)", 1.4, [4, 4]);
+    for (i = 0; i < pts.length; i++) {
+      ctx.beginPath(); ctx.arc(pts[i].p[0], pts[i].p[1], 3.4, 0, Math.PI * 2);
+      ctx.fillStyle = pts[i].y === "A" ? RED : BLUE; ctx.globalAlpha = 0.72; ctx.fill(); ctx.globalAlpha = 1;
+    }
+    for (i = 0; i < nb.length; i++) {
+      ctx.beginPath(); ctx.arc(nb[i].p[0], nb[i].p[1], 6, 0, Math.PI * 2);
+      ctx.lineWidth = 2; ctx.strokeStyle = MARK; ctx.stroke();
+    }
+    ctx.beginPath(); ctx.arc(q[0], q[1], 6.5, 0, Math.PI * 2);
+    ctx.fillStyle = MARK; ctx.fill(); ctx.lineWidth = 2; ctx.strokeStyle = "#fff"; ctx.stroke();
+    var hint = document.getElementById("heroHint");
+    if (hint) hint.textContent = "最近 3 个邻居：" + r.order.map(function (c) { return c + "×" + r.score[c]; }).join("  ") +
+      (r.tie ? "  → 平局！" : "  → 预测 " + r.winners[0]);
+    if (!document.hidden) requestAnimationFrame(step);
+    else setTimeout(function () { if (!document.hidden) requestAnimationFrame(step); }, 600);
+  }
+  step();
+})();
+
+/* 共享工具命名空间：供后面各实验室的独立 script 块使用 */
+window.KU = { esc: esc, clamp: clamp, rnd: rnd, gauss: gauss, fmt: fmt, cls: cls, dL2: dL2, dL1: dL1, dLinf: dLinf,
+  dCosine: dCosine, sampleClusters: sampleClusters, neighborsOf: neighborsOf, vote: vote, drawDot: drawDot,
+  drawSeg: drawSeg, canvasXY: canvasXY, A_FILL: A_FILL, A_STROKE: A_STROKE, B_FILL: B_FILL, B_STROKE: B_STROKE };
+})();
+</script>
+<script>
+/* =========================================================
+   4. 实验室 1：K=1 决策区域（Voronoi）+ 鼠标实时预测
+   ========================================================= */
+(function () {
+"use strict";
+var KU = window.KU;
+var cv = document.getElementById("lab1");
+if (!cv) return;
+var ctx = cv.getContext("2d"), W = cv.width, H = cv.height;
+var pts = [], cursor = null, showRegion = true;
+
+function buildRegion() {
+  var cell = 16, x, y, best, bestD, i, d;
+  var img = ctx.createImageData(W, H);
+  for (y = 0; y < H; y += cell) {
+    for (x = 0; x < W; x += cell) {
+      best = -1; bestD = Infinity;
+      for (i = 0; i < pts.length; i++) {
+        d = KU.dL2([x + cell / 2, y + cell / 2], pts[i].p);
+        if (d < bestD) { bestD = d; best = i; }
+      }
+      var c = KU.cls(pts[best].y);
+      var rgb = pts[best].y === "A" ? [224, 80, 58] : [47, 127, 209];
+      for (var yy = y; yy < Math.min(y + cell, H); yy++) {
+        for (var xx = x; xx < Math.min(x + cell, W); xx++) {
+          var k = (yy * W + xx) * 4;
+          img.data[k] = rgb[0]; img.data[k + 1] = rgb[1]; img.data[k + 2] = rgb[2];
+          img.data[k + 3] = 34;   /* 低透明度底色 */
+        }
+      }
+    }
+  }
+  ctx.putImageData(img, 0, 0);
+}
+
+function draw() {
+  ctx.clearRect(0, 0, W, H);
+  ctx.fillStyle = "#ffffff"; ctx.fillRect(0, 0, W, H);
+  if (showRegion && pts.length) buildRegion();
+  var i, id = document.getElementById("l1-nn"), ip = document.getElementById("l1-pred"), ipos = document.getElementById("l1-pos");
+  for (i = 0; i < pts.length; i++) KU.drawDot(ctx, pts[i].p, pts[i].y, 5.2);
+  if (cursor) {
+    var nb = KU.neighborsOf(pts, cursor, 1, "l2")[0];
+    KU.drawSeg(ctx, cursor, nb.p, "#ce2c31", 2, [5, 4]);
+    ctx.beginPath(); ctx.arc(nb.p[0], nb.p[1], 9, 0, Math.PI * 2);
+    ctx.lineWidth = 2.6; ctx.strokeStyle = "#6e56cf"; ctx.stroke();
+    ctx.beginPath(); ctx.arc(cursor[0], cursor[1], 6, 0, Math.PI * 2);
+    ctx.fillStyle = "#6e56cf"; ctx.fill(); ctx.lineWidth = 2; ctx.strokeStyle = "#6550b9"; ctx.stroke();
+    if (id) id.textContent = "#" + (nb.i + 1) + " / " + KU.fmt(nb.d, 1) + " px";
+    if (ip) { ip.textContent = nb.y + "（K=1）"; ip.style.color = nb.y === "A" ? "#ce2c31" : "#0d74ce"; }
+    if (ipos) ipos.textContent = "(" + Math.round(cursor[0]) + ", " + Math.round(cursor[1]) + ")";
+  } else {
+    if (id) id.textContent = "--";
+    if (ip) { ip.textContent = "--"; ip.style.color = ""; }
+    if (ipos) ipos.textContent = "--";
+  }
+}
+cv.addEventListener("mousemove", function (e) { cursor = KU.canvasXY(cv, e); draw(); });
+cv.addEventListener("mouseleave", function () { cursor = null; draw(); });
+cv.addEventListener("touchmove", function (e) { e.preventDefault(); cursor = KU.canvasXY(cv, e); draw(); }, { passive: false });
+var rb = document.getElementById("l1-reset");
+if (rb) rb.addEventListener("click", function () { pts = KU.sampleClusters(15, 15, W, H); draw(); });
+var rg = document.getElementById("l1-region");
+if (rg) rg.addEventListener("click", function () { showRegion = !showRegion; draw(); });
+pts = KU.sampleClusters(15, 15, W, H);
+draw();
+})();
+
+/* =========================================================
+   5. 实验室 2：距离度量与"等距球"
+   ========================================================= */
+(function () {
+"use strict";
+var KU = window.KU;
+var cv = document.getElementById("lab2");
+if (!cv) return;
+var ctx = cv.getContext("2d"), W = cv.width, H = cv.height;
+var CX0 = W / 2, CY = H / 2, UNIT = 88;          /* 1 个世界单位 = 88 像素 */
+var metric = "l2";
+var samples = [
+  [1.25, 0.35, "A"], [0.45, 1.18, "A"], [-0.72, 1.32, "A"], [1.55, -0.55, "B"],
+  [-0.28, -1.35, "B"], [0.98, 1.38, "B"], [-1.42, 0.22, "B"], [1.15, -1.22, "A"],
+  [0.35, -1.05, "A"], [-0.95, -0.65, "B"]
+];
+var qx = 0.62 * (100 - 0) / 100 * 0;   /* 由滑块决定，见 updateQ */
+
+function w2s(x, y) { return [CX0 + x * UNIT, CY - y * UNIT]; }
+function dist(m, a, b) {
+  if (m === "l1") return KU.dL1(a, b);
+  if (m === "linf") return KU.dLinf(a, b);
+  return KU.dL2(a, b);
+}
+function ballPath(m, qs) {
+  var i, p;
+  ctx.beginPath();
+  if (m === "l2") { ctx.arc(qs[0], qs[1], UNIT, 0, Math.PI * 2); return; }
+  if (m === "l1") {
+    var pts = [[1, 0], [0, 1], [-1, 0], [0, -1]];
+    for (i = 0; i < pts.length; i++) { p = w2s(pts[i][0], pts[i][1]); if (i === 0) ctx.moveTo(qs[0] + (p[0] - CX0), qs[1] + (p[1] - CY)); else ctx.lineTo(qs[0] + (p[0] - CX0), qs[1] + (p[1] - CY)); }
+    ctx.closePath(); return;
+  }
+  var sq = [[1, 1], [1, -1], [-1, -1], [-1, 1]];
+  for (i = 0; i < sq.length; i++) { p = w2s(sq[i][0], sq[i][1]); if (i === 0) ctx.moveTo(qs[0] + (p[0] - CX0), qs[1] + (p[1] - CY)); else ctx.lineTo(qs[0] + (p[0] - CX0), qs[1] + (p[1] - CY)); }
+  ctx.closePath();
+}
+
+function updateQ() {
+  var s = document.getElementById("l2-cx");
+  var v = s ? parseInt(s.value, 10) : 62;
+  qx = -0.8 + (v / 100) * 1.6;
+  draw();
+}
+
+function draw() {
+  ctx.clearRect(0, 0, W, H);
+  ctx.fillStyle = "#fff"; ctx.fillRect(0, 0, W, H);
+  /* 网格（每 0.5 世界单位） */
+  ctx.strokeStyle = "#eef3f9"; ctx.lineWidth = 1;
+  var g, p;
+  for (g = -3; g <= 3; g += 0.5) {
+    p = w2s(g, 0); ctx.beginPath(); ctx.moveTo(p[0], 0); ctx.lineTo(p[0], H); ctx.stroke();
+    p = w2s(0, g); ctx.beginPath(); ctx.moveTo(0, p[1]); ctx.lineTo(W, p[1]); ctx.stroke();
+  }
+  ctx.strokeStyle = "#cdd9e8";
+  ctx.beginPath(); ctx.moveTo(0, CY); ctx.lineTo(W, CY); ctx.stroke();
+  ctx.beginPath(); ctx.moveTo(CX0, 0); ctx.lineTo(CX0, H); ctx.stroke();
+
+  var q = [qx, 0], qs = w2s(qx, 0);
+  /* 单位球（半径 1 的等距线），画在查询点周围 */
+  ballPath(metric, qs);
+  ctx.fillStyle = "rgba(47,127,209,.10)"; ctx.fill();
+  ctx.strokeStyle = "#0090ff"; ctx.lineWidth = 2.2; ctx.setLineDash([6, 4]); ctx.stroke(); ctx.setLineDash([]);
+  ctx.fillStyle = "#17558f"; ctx.font = "600 13px ui-monospace,Consolas,monospace";
+  ctx.fillText("等距线：距查询点 = 1", qs[0] - 62, qs[1] - UNIT - 10);
+
+  /* 样本点 + 到查询点的距离 */
+  var arr = [], i;
+  for (i = 0; i < samples.length; i++) {
+    var s = samples[i], sp = w2s(s[0], s[1]);
+    arr.push({ i: i, y: s[2], p: sp, d: dist(metric, q, s) });
+  }
+  arr.sort(function (a, b) { return a.d - b.d; });
+  var near = arr.slice(0, 3);
+  for (i = 0; i < near.length; i++) KU.drawSeg(ctx, qs, near[i].p, "rgba(110,86,207,.75)", 1.6, [5, 4]);
+  for (i = 0; i < arr.length; i++) {
+    KU.drawDot(ctx, arr[i].p, arr[i].y, 6);
+    if (near.indexOf(arr[i]) >= 0) {
+      ctx.beginPath(); ctx.arc(arr[i].p[0], arr[i].p[1], 10, 0, Math.PI * 2);
+      ctx.lineWidth = 2.6; ctx.strokeStyle = "#6e56cf"; ctx.stroke();
+    }
+  }
+  /* 查询点 */
+  ctx.beginPath(); ctx.arc(qs[0], qs[1], 7, 0, Math.PI * 2);
+  ctx.fillStyle = "#0b2a4a"; ctx.fill(); ctx.lineWidth = 2; ctx.strokeStyle = "#fff"; ctx.stroke();
+  ctx.fillStyle = "#0b2a4a"; ctx.fillText("查询点 Q", qs[0] + 12, qs[1] + 4);
+
+  /* 固定点 P(1,1) 标注 */
+  var pp = w2s(1, 1);
+  ctx.beginPath(); ctx.arc(pp[0], pp[1], 3.6, 0, Math.PI * 2); ctx.fillStyle = "#6b7a90"; ctx.fill();
+  ctx.fillText("P(1,1)", pp[0] + 8, pp[1] - 6);
+
+  /* 读数 */
+  var P = [1, 1];
+  var e2 = document.getElementById("l2-d2"), e1 = document.getElementById("l2-d1"), ei = document.getElementById("l2-dinf");
+  if (e2) e2.textContent = KU.fmt(KU.dL2(q, P), 3);
+  if (e1) e1.textContent = KU.fmt(KU.dL1(q, P), 3);
+  if (ei) ei.textContent = KU.fmt(KU.dLinf(q, P), 3);
+  var em = document.getElementById("l2-metric");
+  if (em) em.textContent = metric === "l2" ? "欧氏 L2" : (metric === "l1" ? "曼哈顿 L1" : "切比雪夫 L∞");
+  var en = document.getElementById("l2-nn");
+  if (en) en.textContent = near.map(function (n) { return "#" + (n.i + 1) + "(" + KU.fmt(n.d, 2) + ")"; }).join("  ");
+}
+
+var btns = document.querySelectorAll("[data-metric]");
+function bindMetric(b) {
+  b.addEventListener("click", function () {
+    metric = b.getAttribute("data-metric");
+    for (var i = 0; i < btns.length; i++) btns[i].className = "btn" + (btns[i] === b ? " on" : " ghost");
+    draw();
+  });
+}
+for (var bi = 0; bi < btns.length; bi++) bindMetric(btns[bi]);
+var sl = document.getElementById("l2-cx");
+if (sl) sl.addEventListener("input", updateQ);
+updateQ();
+})();
+</script>
+<script>
+/* =========================================================
+   6. 实验室 3（主实验室）：K 值 · 邻居连线 · 投票 · 平局 · 决策边界
+   ========================================================= */
+(function () {
+"use strict";
+var KU = window.KU;
+var cv = document.getElementById("lab3");
+if (!cv) return;
+var ctx = cv.getContext("2d"), W = cv.width, H = cv.height;
+var pts = [], query = null, mode = "query", k = 3;
+var showBoundary = false, showLines = true;
+var boundaryImg = null, boundaryKey = "", reveal = 0, target = 0, timer = null, sweeping = null;
+
+function kNow() { return Math.max(1, Math.min(k, pts.length || 1)); }
+
+/* ---------- 决策边界热力图（按 K 与样本缓存） ---------- */
+function computeBoundary() {
+  var key = "" + pts.length + "|" + kNow() + "|" + ptsVersion;
+  if (key === boundaryKey && boundaryImg) return;
+  var cell = 14, img = ctx.createImageData(W, H), x, y, i, d, best;
+  for (y = 0; y < H; y += cell) {
+    for (x = 0; x < W; x += cell) {
+      var q = [x + cell / 2, y + cell / 2];
+      var arr = [];
+      for (i = 0; i < pts.length; i++) arr.push({ y: pts[i].y, d: KU.dL2(q, pts[i].p) });
+      arr.sort(function (a, b) { return a.d - b.d; });
+      var kk = kNow(), sc = {}, ord = [];
+      for (i = 0; i < kk && i < arr.length; i++) {
+        var c = arr[i].y;
+        if (!(c in sc)) { sc[c] = 0; ord.push(c); }
+        sc[c] += 1;
+      }
+      var bw = -1, win = "";
+      for (i = 0; i < ord.length; i++) if (sc[ord[i]] > bw) { bw = sc[ord[i]]; win = ord[i]; }
+      var rgb = win === "A" ? [224, 80, 58] : [47, 127, 209];
+      for (var yy = y; yy < Math.min(y + cell, H); yy++) {
+        for (var xx = x; xx < Math.min(x + cell, W); xx++) {
+          var kk2 = (yy * W + xx) * 4;
+          img.data[kk2] = rgb[0]; img.data[kk2 + 1] = rgb[1]; img.data[kk2 + 2] = rgb[2];
+          img.data[kk2 + 3] = 30;
+        }
+      }
+    }
+  }
+  boundaryImg = img; boundaryKey = key;
+}
+var ptsVersion = 0;
+
+/* ---------- 渲染 ---------- */
+function render() {
+  ctx.clearRect(0, 0, W, H);
+  ctx.fillStyle = "#ffffff"; ctx.fillRect(0, 0, W, H);
+  if (showBoundary && pts.length) {
+    computeBoundary();
+    if (boundaryImg) ctx.putImageData(boundaryImg, 0, 0);
+  }
+  var i;
+  /* 网格参照线 */
+  ctx.strokeStyle = "#f4f7fb";
+  for (i = 40; i < W; i += 40) { ctx.beginPath(); ctx.moveTo(i, 0); ctx.lineTo(i, H); ctx.stroke(); }
+  for (i = 40; i < H; i += 40) { ctx.beginPath(); ctx.moveTo(0, i); ctx.lineTo(W, i); ctx.stroke(); }
+
+  var nb = (query && pts.length) ? KU.neighborsOf(pts, query, kNow(), "l2") : [];
+  var shown = nb.slice(0, reveal);
+  var vot = null, done = false;
+
+  if (query && nb.length) {
+    done = reveal >= nb.length;
+    vot = KU.vote(shown);
+    if (showLines) for (i = 0; i < shown.length; i++) KU.drawSeg(ctx, query, shown[i].p, "rgba(11,42,74,.42)", 1.5, [5, 4]);
+    for (i = 0; i < shown.length; i++) {
+      var nbp = shown[i].p;
+      ctx.beginPath(); ctx.arc(nbp[0], nbp[1], 11, 0, Math.PI * 2);
+      ctx.lineWidth = 2.8; ctx.strokeStyle = "#6e56cf"; ctx.stroke();
+      ctx.fillStyle = "#6550b9"; ctx.font = "700 12px ui-monospace,Consolas,monospace";
+      ctx.fillText("#" + (i + 1), nbp[0] + 13, nbp[1] - 10);
+    }
+  }
+  for (i = 0; i < pts.length; i++) KU.drawDot(ctx, pts[i].p, pts[i].y, 5.4);
+  if (query) {
+    ctx.beginPath(); ctx.arc(query[0], query[1], 7.5, 0, Math.PI * 2);
+    ctx.fillStyle = "#6e56cf"; ctx.fill(); ctx.lineWidth = 2.2; ctx.strokeStyle = "#6550b9"; ctx.stroke();
+    ctx.fillStyle = "#6550b9"; ctx.font = "700 13px system-ui,sans-serif";
+    ctx.fillText("?", query[0] - 4, query[1] - 12);
+  }
+
+  /* ---------- 右侧读数与投票条 ---------- */
+  var pos = document.getElementById("l3-pos");
+  if (pos) pos.textContent = query ? "(" + Math.round(query[0]) + ", " + Math.round(query[1]) + ")" : "--";
+  var en = document.getElementById("l3-n");
+  if (en) en.textContent = pts.length + " 个（A " + pts.filter(function (p) { return p.y === "A"; }).length +
+    " / B " + pts.filter(function (p) { return p.y === "B"; }).length + "）";
+
+  var vb = document.getElementById("l3-votes");
+  if (vb) {
+    if (!query || !nb.length) vb.innerHTML = '<div class="hint">点击画布放置测试点后显示投票计数。</div>';
+    else {
+      var rows = ["A", "B"].map(function (c) {
+        var cnt = vot.score[c] || 0;
+        var pct = shown.length ? (cnt / shown.length * 100) : 0;
+        return '<div class="votebar"><div class="top"><span>' + (c === "A" ? "类别 A（红）" : "类别 B（蓝）") +
+          '：<b class="mono">' + cnt + '</b> 票</span><span class="mono">' + Math.round(pct) + '%</span></div>' +
+          '<div class="track"><div class="fill ' + (c === "A" ? "a" : "b") + '" style="width:' + pct + '%"></div></div></div>';
+      }).join("");
+      vb.innerHTML = rows + '<div class="hint">已揭示 ' + shown.length + " / " + nb.length + " 个邻居（按距离从近到远）" +
+        "，K = " + kNow() + "</div>";
+    }
+  }
+  var vd = document.getElementById("l3-verdict");
+  var tie = document.getElementById("l3-tie");
+  if (vd) {
+    if (!query || !nb.length) { vd.textContent = "等待放置测试点…"; vd.className = "verdict"; vd.style.color = "#6b7a90"; }
+    else if (!done) { vd.textContent = "投票进行中…"; vd.className = "verdict"; vd.style.color = "#6b7a90"; }
+    else {
+      var full = KU.vote(nb);
+      if (full.tie) {
+        vd.textContent = "T-T 平局：无法用多数投票决定";
+        vd.className = "verdict"; vd.style.color = "#ce2c31"; vd.style.background = "#feebec"; vd.style.borderColor = "#fdbdbe";
+      } else {
+        vd.textContent = "预测类别：" + full.winners[0] + "（" + full.best + " / " + nb.length + " 票）";
+        vd.className = "verdict " + (full.winners[0] === "A" ? "a" : "b");
+        vd.style.background = ""; vd.style.borderColor = ""; vd.style.color = "";
+      }
+    }
+  }
+  if (tie) {
+    if (done && nb.length) {
+      var full2 = KU.vote(nb);
+      if (full2.tie) {
+        tie.innerHTML = "<b>T-T 平局检测</b>：K = " + nb.length + " 时票数为 " +
+          full2.order.map(function (c) { return c + " " + full2.score[c] + " 票"; }).join(" / ") +
+          "。<br>多数投票无法决定结果。工程上的解法：<br>① 改用奇数 K（仅二分类等权时有效）<br>② 最近邻优先（谁有更近的邻居归谁）<br>③ 距离加权投票 w=1/d<br>④ 类别先验 / 业务优先级<br>⑤ 确定性兜底（最小类标签）";
+        tie.className = "tie show";
+      } else { tie.className = "tie"; tie.innerHTML = ""; }
+    } else { tie.className = "tie"; tie.innerHTML = ""; }
+  }
+}
+
+/* ---------- 逐点揭示动画 ---------- */
+function startReveal() {
+  if (timer) { clearInterval(timer); timer = null; }
+  reveal = 0;
+  target = kNow();
+  timer = setInterval(function () {
+    reveal++;
+    render();
+    if (reveal >= target) { clearInterval(timer); timer = null; }
+  }, 165);
+}
+
+/* ---------- 交互 ---------- */
+cv.addEventListener("click", function (e) {
+  var p = KU.canvasXY(cv, e);
+  if (mode === "query") {
+    if (!pts.length) { return; }
+    query = p; startReveal();
+  } else {
+    pts.push({ p: p, y: mode });
+    ptsVersion++; boundaryKey = "x";
+    reveal = 0; render();
+  }
+});
+var ksl = document.getElementById("l3-k");
+if (ksl) ksl.addEventListener("input", function () {
+  k = parseInt(ksl.value, 10);
+  var kv = document.getElementById("l3-kval"); if (kv) kv.textContent = k;
+  var pp = document.getElementById("l3-parity");
+  if (pp) {
+    var odd = k % 2 === 1;
+    pp.textContent = odd ? "奇数（二分类下不会平局）" : "偶数（可能出现平局！）";
+    pp.className = "pill " + (odd ? "" : "a");
+    pp.style.background = odd ? "#e9f7f0" : ""; pp.style.color = odd ? "#1d7a52" : ""; pp.style.borderColor = odd ? "#cdeade" : "";
+  }
+  boundaryKey = "x";
+  if (query) startReveal(); else render();
+});
+
+var modeBtns = document.querySelectorAll("[data-mode]");
+function bindMode(b) {
+  b.addEventListener("click", function () {
+    mode = b.getAttribute("data-mode");
+    for (var i = 0; i < modeBtns.length; i++) modeBtns[i].className = "btn" + (modeBtns[i] === b ? " on" : " ghost");
+    cv.style.cursor = mode === "query" ? "crosshair" : "copy";
+  });
+}
+for (var mi = 0; mi < modeBtns.length; mi++) bindMode(modeBtns[mi]);
+
+var cb = document.getElementById("l3-boundary");
+if (cb) cb.addEventListener("change", function () { showBoundary = cb.checked; boundaryKey = "x"; render(); });
+var cl = document.getElementById("l3-lines");
+if (cl) cl.addEventListener("change", function () { showLines = cl.checked; render(); });
+var rb = document.getElementById("l3-resample");
+if (rb) rb.addEventListener("click", function () { pts = KU.sampleClusters(20, 20, W, H); ptsVersion++; boundaryKey = "x"; query = null; reveal = 0; render(); });
+var cbtn = document.getElementById("l3-clear");
+if (cbtn) cbtn.addEventListener("click", function () { pts = []; ptsVersion++; boundaryKey = "x"; query = null; reveal = 0; render(); });
+var sw = document.getElementById("l3-sweep");
+if (sw) sw.addEventListener("click", function () {
+  if (sweeping) { clearInterval(sweeping); sweeping = null; sw.textContent = "▶ K 自动扫描（看边界变化）"; return; }
+  if (!pts.length) { pts = KU.sampleClusters(20, 20, W, H); ptsVersion++; }
+  if (!query) query = [W * 0.5, H * 0.5];
+  showBoundary = true; if (cb) cb.checked = true;
+  sw.textContent = "■ 停止扫描";
+  var kk = 1;
+  ksl.value = kk; k = kk;
+  var kv = document.getElementById("l3-kval"); if (kv) kv.textContent = kk;
+  boundaryKey = "x"; render();
+  sweeping = setInterval(function () {
+    kk += 2;
+    if (kk > 25) { clearInterval(sweeping); sweeping = null; sw.textContent = "▶ K 自动扫描（看边界变化）"; return; }
+    ksl.value = kk; k = kk;
+    if (kv) kv.textContent = kk;
+    boundaryKey = "x";
+    reveal = kNow(); render();
+  }, 520);
+});
+
+/* 初始化 */
+pts = KU.sampleClusters(20, 20, W, H);
+k = parseInt(ksl.value, 10);
+if (ksl) { /* 触发一次 parity 显示 */ ksl.dispatchEvent(new Event("input")); }
+query = [W * 0.5, H * 0.46];
+reveal = kNow();
+render();
+})();
+</script>
+<script>
+/* =========================================================
+   7. 实验室 4：量纲失衡对照实验（未标准化 vs Z-score 标准化）
+   ========================================================= */
+(function () {
+"use strict";
+var KU = window.KU;
+var cva = document.getElementById("lab4a"), cvb = document.getElementById("lab4b");
+if (!cva || !cvb) return;
+var ca = cva.getContext("2d"), cb = cvb.getContext("2d");
+var W = cva.width, H = cva.height;
+
+/* 世界坐标：特征① = x ∈ [0,1]（会被放大 c 倍），特征② = y ∈ [0,1] */
+var pts = [
+  [0.615, 0.95, "A"],                       /* 与 Q 的特征①几乎相同、但特征②很远：量纲失衡时的“假邻居” */
+  [0.45, 0.52, "B"],                        /* 标准化空间里真正的最近邻 */
+  [0.18, 0.22, "A"], [0.26, 0.36, "A"], [0.30, 0.18, "A"], [0.14, 0.44, "A"],
+  [0.36, 0.30, "A"], [0.52, 0.28, "A"], [0.48, 0.76, "B"], [0.72, 0.66, "B"],
+  [0.80, 0.78, "B"], [0.66, 0.82, "B"], [0.86, 0.62, "B"], [0.24, 0.80, "B"]
+];
+var Q = [0.62, 0.48];
+var c = 1000;
+
+function s2c(x, y, cv) { return [24 + x * (W - 48), (H - 24) - y * (H - 48)]; }
+
+/* 未标准化距离：特征① 乘 c 后被放大；标准化距离：用训练集统计量做 z-score */
+function rawDist(a, b) { return Math.sqrt(Math.pow(c * (a[0] - b[0]), 2) + Math.pow(a[1] - b[1], 2)); }
+/* scaler 只用训练集估计（不要把查询点算进均值/方差，否则就是数据泄漏） */
+function stats(idx) {
+  var k = (idx === 0 ? c : 1), vals = [], i;   /* 只有特征① 被放大 c 倍 */
+  for (i = 0; i < pts.length; i++) vals.push(k * pts[i][idx]);
+  var m = 0; for (i = 0; i < vals.length; i++) m += vals[i]; m /= vals.length;
+  var v = 0; for (i = 0; i < vals.length; i++) v += (vals[i] - m) * (vals[i] - m); v /= Math.max(1, vals.length - 1);
+  return { m: m, s: Math.sqrt(v) || 1 };
+}
+function stdDist(a, b, sa, sb) {
+  var a0 = (c * a[0] - sa.m) / sa.s, b0 = (c * b[0] - sa.m) / sa.s;
+  var a1 = (a[1] - sb.m) / sb.s, b1 = (b[1] - sb.m) / sb.s;
+  return Math.sqrt(Math.pow(a0 - b0, 2) + Math.pow(a1 - b1, 2));
+}
+function pick(distFn) {
+  var best = null, i;
+  for (i = 0; i < pts.length; i++) {
+    var d = distFn(Q, pts[i]);
+    if (!best || d < best.d) best = { i: i, d: d, y: pts[i][2] };
+  }
+  return best;
+}
+
+function panel(ctx, cv, chosen, title, sub, note) {
+  ctx.clearRect(0, 0, W, H);
+  ctx.fillStyle = "#fff"; ctx.fillRect(0, 0, W, H);
+  /* 特征①的取值参考线（竖向网格），越密说明该维分辨率越高 */
+  ctx.strokeStyle = "#f2f6fb";
+  for (var g = 0; g <= 1.0001; g += 0.1) {
+    var p = s2c(g, 0, cv);
+    ctx.beginPath(); ctx.moveTo(p[0], 16); ctx.lineTo(p[0], H - 16); ctx.stroke();
+  }
+  /* 选中邻居的连线 */
+  if (chosen) {
+    var qp = s2c(Q[0], Q[1], cv), np = s2c(pts[chosen.i][0], pts[chosen.i][1], cv);
+    KU.drawSeg(ctx, qp, np, "rgba(110,86,207,.9)", 2);
+  }
+  for (var i = 0; i < pts.length; i++) {
+    var sp = s2c(pts[i][0], pts[i][1], cv);
+    KU.drawDot(ctx, sp, pts[i][2], 5.4);
+    if (chosen && chosen.i === i) {
+      ctx.beginPath(); ctx.arc(sp[0], sp[1], 10.5, 0, Math.PI * 2);
+      ctx.lineWidth = 2.8; ctx.strokeStyle = "#6e56cf"; ctx.stroke();
+    }
+  }
+  var qs = s2c(Q[0], Q[1], cv);
+  ctx.beginPath(); ctx.arc(qs[0], qs[1], 7, 0, Math.PI * 2);
+  ctx.fillStyle = "#6e56cf"; ctx.fill(); ctx.lineWidth = 2; ctx.strokeStyle = "#6550b9"; ctx.stroke();
+  ctx.fillStyle = "#0b2a4a"; ctx.font = "700 13.5px system-ui,sans-serif";
+  ctx.fillText(title, 14, 22);
+  ctx.fillStyle = "#6b7a90"; ctx.font = "12px ui-monospace,Consolas,monospace";
+  ctx.fillText(sub, 14, H - 12);
+  ctx.fillStyle = "#17558f"; ctx.font = "600 12.5px system-ui,sans-serif";
+  ctx.fillText(note, 14, 40);
+}
+
+function update() {
+  var sa = stats(0), sb = stats(1);
+  var ra = pick(function (a, b) { return rawDist(a, b); });
+  var sbp = pick(function (a, b) { return stdDist(a, b, sa, sb); });
+  var ec = document.getElementById("l4-c"); if (ec) ec.textContent = c;
+  var ea = document.getElementById("l4-na"), eb = document.getElementById("l4-nb"), es = document.getElementById("l4-same");
+  if (ea) ea.textContent = "#" + (ra.i + 1) + "（" + ra.y + "） d=" + KU.fmt(ra.d, 3);
+  if (eb) eb.textContent = "#" + (sbp.i + 1) + "（" + sbp.y + "） d=" + KU.fmt(sbp.d, 3);
+  var same = ra.i === sbp.i;
+  if (es) { es.textContent = same ? "一致 √" : "不一致 ×（最近邻换了人）"; es.style.color = same ? "#1d7a52" : "#ce2c31"; }
+  var warn = document.getElementById("l4-warn");
+  if (warn) {
+    if (same) { warn.className = "tie"; warn.innerHTML = ""; }
+    else {
+      warn.className = "tie show";
+      warn.innerHTML = "<b>T-T 量纲失衡已生效</b>：c = " + c + " 时，未标准化版本的距离被特征① 支配" +
+        "（特征①的差被放大 " + c + " 倍），它选出的最近邻与标准化版本不同。<br>" +
+        "极端情况（c → ∞）下，未标准化的 1-NN 会退化为<b>只比较特征①</b>的单维最近邻。";
+    }
+  }
+  panel(ca, cva, ra, "未标准化", "d = √( (c·Δ特征①)² + Δ特征②² )", "距离被特征① 支配");
+  panel(cb, cvb, sbp, "Z-score 标准化后", "d = √( Δz₁² + Δz₂² )", "两维等权（与 c 无关）");
+}
+
+var sl = document.getElementById("l4-range");
+if (sl) sl.addEventListener("input", function () { c = Math.pow(10, parseInt(sl.value, 10)); update(); });
+update();
+})();
+
+/* =========================================================
+   8. 实验室 5：暴力搜索 vs KD-Tree（真实实现 + 访问点数统计）
+   ========================================================= */
+(function () {
+"use strict";
+var KU = window.KU;
+var btn = document.getElementById("l5-run");
+if (!btn) return;
+var DATA = null, DIM = 2, N = 4000, K = 5;
+
+function makeData() {
+  DATA = [];
+  for (var i = 0; i < N; i++) {
+    var p = [];
+    for (var j = 0; j < DIM; j++) p.push(Math.random());
+    DATA.push(p);
+  }
+}
+function d2(a, b) {
+  var s = 0;
+  for (var j = 0; j < a.length; j++) { var t = a[j] - b[j]; s += t * t; }
+  return s;
+}
+/* --- KD-Tree：对训练集建树（训练期开销），查询时用超矩形距离下界剪枝 --- */
+function buildKD(idx, depth) {
+  if (idx.length === 0) return null;
+  var ax = depth % DIM;
+  idx.sort(function (a, b) { return DATA[a][ax] - DATA[b][ax]; });
+  var mid = idx.length >> 1;
+  return {
+    ax: ax, id: idx[mid], p: DATA[idx[mid]],
+    left: buildKD(idx.slice(0, mid), depth + 1),
+    right: buildKD(idx.slice(mid + 1), depth + 1)
+  };
+}
+function kdSearch(node, q, best, stat) {
+  if (!node) return;
+  var dd = d2(q, node.p); stat.points++;
+  best.push({ d: dd, id: node.id });
+  best.sort(function (a, b) { return a.d - b.d; });
+  if (best.length > K) best.pop();
+  var diff = q[node.ax] - node.p[node.ax];
+  var near = diff < 0 ? node.left : node.right;
+  var far = diff < 0 ? node.right : node.left;
+  kdSearch(near, q, best, stat);
+  stat.nodes++;
+  var worst = best.length < K ? Infinity : best[best.length - 1].d;
+  if (diff * diff < worst) kdSearch(far, q, best, stat);
+}
+function brute(q, stat) {
+  var best = [];
+  for (var i = 0; i < DATA.length; i++) {
+    var dd = d2(q, DATA[i]); stat.points++;
+    best.push({ d: dd, id: i });
+    best.sort(function (a, b) { return a.d - b.d; });
+    if (best.length > K) best.pop();
+  }
+  return best;
+}
+function genQ() {
+  var q = [];
+  for (var j = 0; j < DIM; j++) q.push(Math.random());
+  return q;
+}
+function run() {
+  var t0 = performance.now();
+  var buildStart = performance.now();
+  var tree = buildKD(DATA.map(function (_, i) { return i; }), 0);
+  var buildMs = performance.now() - buildStart;
+
+  var qs = [], i;
+  var per = N * DIM;
+  var QN = Math.max(6, Math.min(50, Math.round(2000000 / per)));
+  for (i = 0; i < QN; i++) qs.push(genQ());
+
+  var statB = { points: 0, nodes: 0 }, t1 = performance.now();
+  for (i = 0; i < qs.length; i++) brute(qs[i], statB);
+  var tb = (performance.now() - t1) / qs.length;
+
+  var statK = { points: 0, nodes: 0 }, t2 = performance.now();
+  for (i = 0; i < qs.length; i++) kdSearch(tree, qs[i], [], statK);
+  var tk = (performance.now() - t2) / qs.length;
+
+  var vb = statB.points / qs.length, vk = statK.points / qs.length;
+
+  function set(id, txt) { var e = document.getElementById(id); if (e) e.textContent = txt; }
+  set("l5-tb", KU.fmt(tb, 3));
+  set("l5-tk", KU.fmt(tk, 3));
+  set("l5-cb", Math.round(vb).toLocaleString());
+  set("l5-ck", Math.round(vk).toLocaleString());
+  set("l5-build", KU.fmt(buildMs, 1) + " ms");
+  set("l5-speed", tb / Math.max(tk, 0.001) >= 1 ? KU.fmt(tb / Math.max(tk, 0.001), 2) + "×" : KU.fmt(tb / Math.max(tk, 0.001), 2) + "×（KD 更慢）");
+  set("l5-eff", KU.fmt(vk / N * 100, 1) + "% 的点被访问");
+  set("l5-lab1", Math.round(vb).toLocaleString());
+  set("l5-lab2", Math.round(vk).toLocaleString());
+  var b1 = document.getElementById("l5-bar1"), b2 = document.getElementById("l5-bar2");
+  if (b1) b1.style.width = "100%";
+  if (b2) b2.style.width = Math.max(2, vk / vb * 100) + "%";
+  var cm = document.getElementById("l5-comment");
+  if (cm) {
+    var msg;
+    if (DIM <= 3) msg = "维度 d = " + DIM + " 很低，剪枝非常有效：KD-Tree 只访问了约 " + KU.fmt(vk / N * 100, 1) + "% 的点，查询耗时约为暴力搜索的 1/" + KU.fmt(tb / Math.max(tk, 0.001), 1) + "。";
+    else if (DIM <= 8) msg = "维度 d = " + DIM + "：剪枝仍然部分有效（访问约 " + KU.fmt(vk / N * 100, 1) + "% 的点），但效率已明显下降——树结构能剪掉的子树越来越少。";
+    else msg = "维度 d = " + DIM + " 已经偏高：剪枝基本失效，KD-Tree 访问了约 " + KU.fmt(vk / N * 100, 1) + "% 的点，加速比接近消失——这正是<b>维度灾难</b>在索引结构上的表现。";
+    cm.innerHTML = msg + "（共 " + qs.length + " 次查询，K = " + K + "）";
+  }
+}
+btn.addEventListener("click", run);
+var sn = document.getElementById("l5-n"), sd = document.getElementById("l5-d");
+function syncLabels() {
+  var en = document.getElementById("l5-nv"), ed = document.getElementById("l5-dv");
+  if (sn) { N = parseInt(sn.value, 10); if (en) en.textContent = N; }
+  if (sd) { DIM = parseInt(sd.value, 10); if (ed) ed.textContent = DIM; }
+  makeData();
+}
+if (sn) sn.addEventListener("input", syncLabels);
+if (sd) sd.addEventListener("input", syncLabels);
+/* 拖动滑块时只更新数据；松开滑块（change）后自动重跑一次对比，省得每次都要点按钮 */
+if (sn) sn.addEventListener("change", run);
+if (sd) sd.addEventListener("change", run);
+var rs = document.getElementById("l5-reset");
+if (rs) rs.addEventListener("click", function () { makeData(); run(); });
+syncLabels();
+run();
+})();
+
+/* =========================================================
+   9. 3.3 节"可运行的 JS 模拟"：把页面里的代码块真跑一遍
+   ========================================================= */
+(function () {
+"use strict";
+var runBtn = document.getElementById("jsrun"), outEl = document.getElementById("jsout"), clr = document.getElementById("jsclr");
+if (!runBtn || !outEl) return;
+var NL = String.fromCharCode(10);
+runBtn.addEventListener("click", function () {
+  var blocks = document.querySelectorAll(".codeblock code"), src = null, i;
+  for (i = 0; i < blocks.length; i++) {
+    if (blocks[i].textContent.indexOf("knnPredict") >= 0 && blocks[i].textContent.indexOf("KNN_PREDICT") < 0) { src = blocks[i].textContent; break; }
+  }
+  if (!src) { outEl.textContent = "未找到可运行的示例代码块。"; return; }
+  var logs = [];
+  var fakeConsole = {
+    log: function () {
+      var parts = [], j;
+      for (j = 0; j < arguments.length; j++) {
+        var v = arguments[j];
+        parts.push(typeof v === "object" && v !== null ? JSON.stringify(v) : String(v));
+      }
+      logs.push(parts.join(" "));
+    }
+  };
+  try {
+    var fn = new Function("console", src);
+    fn(fakeConsole);
+    outEl.textContent = logs.join(NL) || "（没有任何输出）";
+  } catch (err) {
+    outEl.textContent = "运行出错：" + err.message;
+  }
+});
+if (clr) clr.addEventListener("click", function () { outEl.textContent = "// 输出已清空"; });
+})();
+</script>
+<script>
+/* =========================================================================
+   视觉增强引擎（原生实现，零依赖）
+   仅做三件事：指针跟随的柔光 / 滚动入场 / 首屏数字滚动
+   全部由 prefers-reduced-motion 开关兜底；任何异常都不影响教程本身的交互
+   ========================================================================= */
+(function () {
+"use strict";
+var RM = false;
+try { RM = window.matchMedia && window.matchMedia("(prefers-reduced-motion: reduce)").matches; } catch (e) { RM = false; }
+
+/* ---------- ① 指针柔光：JS 只写 CSS 变量，效果由 CSS 绘制；带惯性平滑 ---------- */
+(function spotlight() {
+  if (RM) return;
+  var targets = document.querySelectorAll(".lab, .hero-card");   /* 目录不加柔光：它是 sticky 定位，且不需要这个效果 */
+  for (var i = 0; i < targets.length; i++) {
+    (function (el) {
+      if (el.classList.contains("lab")) el.classList.add("rim");
+      el.classList.add("spot");
+      var raf = null, tx = 0, ty = 0, cx = 0, cy = 0;
+      function loop() {
+        cx += (tx - cx) * 0.18;                 /* 惯性平滑：不硬跳，约 6 帧内收敛 */
+        cy += (ty - cy) * 0.18;
+        el.style.setProperty("--mx", cx.toFixed(1) + "px");
+        el.style.setProperty("--my", cy.toFixed(1) + "px");
+        if (Math.abs(tx - cx) > 0.5 || Math.abs(ty - cy) > 0.5) raf = requestAnimationFrame(loop);
+        else raf = null;                        /* 收敛后停掉 rAF，不持续占用 CPU */
+      }
+      el.addEventListener("pointermove", function (e) {
+        var r = el.getBoundingClientRect();
+        tx = e.clientX - r.left; ty = e.clientY - r.top;
+        if (!el.classList.contains("spot-on")) { cx = tx; cy = ty; el.classList.add("spot-on"); }
+        if (!raf) raf = requestAnimationFrame(loop);
+      }, { passive: true });
+      el.addEventListener("pointerleave", function () { el.classList.remove("spot-on"); });
+    })(targets[i]);
+  }
+})();
+
+/* ---------- ④ 文字微动效：给可交互文字包一层 .hz（只放大文字本身） ---------- */
+(function hoverZoom() {
+  if (RM) return;
+  var els = document.querySelectorAll(".toc a, .btn, .chip, details > summary, .copy, .tag");
+  for (var i = 0; i < els.length; i++) {
+    var el = els[i];
+    if (el.querySelector(":scope > .hz")) continue;      /* 幂等：只包一次 */
+    var span = document.createElement("span");
+    span.className = "hz";
+    while (el.firstChild) span.appendChild(el.firstChild);
+    el.appendChild(span);
+  }
+})();
+
+/* ---------- ② 表格对齐：已改为 100% 全居中（纯 CSS 实现，无需运行期判定），该模块整体删除 ---------- */
+
+/* ---------- ② 滚动入场：位置检查驱动（不依赖 IntersectionObserver 的投递时机） ----------
+   为什么不用 IO：IO 回调在"渲染步骤"里投递，若回调迟迟不来（后台标签页、极端卡顿、
+   无合成器的渲染环境），被标记为 .rv 的区块会一直停在 opacity:0 —— 内容直接消失。
+   这里改成纯几何判断：加载后立即检查一次，之后在 scroll / resize 上用 rAF 节流复查，
+   既保证"可见内容一定会显示"，又保留"滚到才淡入"的效果。 */
+(function reveal() {
+  var els = document.querySelectorAll(".lab");   /* 只给"交互实验室"这类功能模块做入场，避免"每节都动" */
+  if (!els.length) return;
+  if (RM) return;                                          /* 已关闭动效 → 什么都不做，内容可见 */
+  var list = [], i;
+  for (i = 0; i < els.length; i++) { els[i].classList.add("rv"); list.push(els[i]); }
+  var pending = list.slice(), seen = 0, ticking = false;
+  function reveal(el) {
+    el.style.transitionDelay = Math.min(seen % 3, 2) * 70 + "ms";
+    el.classList.add("in");
+    seen++;
+  }
+  function pass(margin) {
+    ticking = false;
+    var vh = window.innerHeight || document.documentElement.clientHeight;
+    var limit = vh * (margin || 0.94);
+    for (var j = pending.length - 1; j >= 0; j--) {
+      var r = pending[j].getBoundingClientRect();
+      if (r.top < limit && r.bottom > -vh * 0.5) { reveal(pending[j]); pending.splice(j, 1); }
+    }
+  }
+  function onMove() { if (!ticking) { ticking = true; requestAnimationFrame(pass); } }
+  pass();                                                  /* 立即跑一次：首屏内容不会停在隐藏态 */
+  setTimeout(pass, 120);                                   /* 布局稳定后再补一次（字体/图片导致的位移） */
+  setTimeout(function () { pass(1.6); }, 3000);            /* 兜底：临近视口的模块即使滚动事件异常也会揭示 */
+  document.addEventListener("visibilitychange", onMove);
+  window.addEventListener("scroll", onMove, { passive: true });
+  window.addEventListener("resize", onMove);
+})();
+
+/* ---------- ③ 首屏数字滚动（CountUp 思路：仅对纯数字生效，缓出曲线） ---------- */
+(function countUp() {
+  var nodes = document.querySelectorAll(".hero .chip b, .hero-stats .n");
+  var jobs = [], i;
+  for (i = 0; i < nodes.length; i++) {
+    var raw = (nodes[i].textContent || "").trim();
+    if (/^[0-9]+$/.test(raw)) jobs.push({ el: nodes[i], to: parseInt(raw, 10) });
+  }
+  if (!jobs.length) return;
+  if (RM) return;                                          /* 关动效：直接保留最终值 */
+  function finalize() {
+    for (var k = 0; k < jobs.length; k++) jobs[k].el.textContent = jobs[k].to;
+  }
+  function run() {
+    var t0 = null, DUR = 900, stopped = false;
+    function frame(ts) {
+      if (stopped) return;
+      if (t0 === null) t0 = ts;
+      var p = Math.min(1, (ts - t0) / DUR);
+      var e = 1 - Math.pow(1 - p, 3);                       /* easeOutCubic */
+      for (var j = 0; j < jobs.length; j++) jobs[j].el.textContent = Math.round(jobs[j].to * e);
+      if (p < 1) requestAnimationFrame(frame); else stopped = true;
+    }
+    requestAnimationFrame(frame);
+    /* 兜底：rAF 可能被浏览器节流（后台标签页）或整段跳过（打印/导出），
+       到点后无条件写入最终值，保证首屏数字永远不会停在 0 */
+    setTimeout(function () { stopped = true; finalize(); }, DUR + 260);
+  }
+  if ("IntersectionObserver" in window) {
+    var host = document.querySelector(".hero");
+    if (!host) { run(); return; }
+    var io2 = new IntersectionObserver(function (es) {
+      if (es[0].isIntersecting) { run(); io2.disconnect(); }
+    }, { threshold: 0.15 });
+    io2.observe(host);
+  } else run();
+})();
+})();
+</script>
+
+</body>
+</html>
