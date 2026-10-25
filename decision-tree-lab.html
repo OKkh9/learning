@@ -1,0 +1,3024 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta name="color-scheme" content="light">
+<title>决策树实验台 · 机器学习第 4 章</title>
+<style>
+/* ===== Design tokens ===== */
+:root{
+  --paper:#eef3f2; --paper-2:#e6eeec; --panel:#f8faf8; --panel-soft:#f2f7f5;
+  --ink:#172a33; --ink-2:#334b54; --muted:#66797e; --muted-2:#829194;
+  --line:#cbd8d6; --line-strong:#aabdb8;
+  --blue:#3d6f90; --blue-deep:#244b63; --blue-wash:#dbe8ee; --blue-wash-2:#edf4f6;
+  --green:#6f8f7e; --green-deep:#3f6453; --green-wash:#dfebe4;
+  --red:#a95f57; --red-deep:#7f433e; --red-wash:#f1e1de;
+  --amber:#927947; --amber-wash:#efe8d7;
+  --code:#14242d; --code-2:#1c303a; --code-text:#d8e6e4;
+  --shadow:0 24px 64px rgba(43,73,82,.10),0 3px 12px rgba(43,73,82,.05);
+  --shadow-soft:0 14px 36px rgba(43,73,82,.075);
+  --serif:"Iowan Old Style","Palatino Linotype","Book Antiqua","Noto Serif SC","Source Han Serif SC","Songti SC","SimSun",serif;
+  --sans:-apple-system,BlinkMacSystemFont,"Segoe UI","Noto Sans SC","Microsoft YaHei","PingFang SC",sans-serif;
+  --mono:"Cascadia Mono","SFMono-Regular","Roboto Mono",Consolas,"Liberation Mono",monospace;
+  --max:1280px;
+}
+*{box-sizing:border-box}
+html{scroll-behavior:smooth;scroll-padding-top:128px}
+body{
+  margin:0; padding-top:112px; color:var(--ink); font-family:var(--sans);
+  font-size:16.5px; line-height:1.82;
+  background:
+    radial-gradient(circle at 7% 3%,rgba(111,143,126,.16),transparent 30rem),
+    radial-gradient(circle at 95% 16%,rgba(61,111,144,.11),transparent 34rem),
+    linear-gradient(180deg,#f4f8f6 0%,#edf3f1 48%,#f5f7f4 100%);
+  -webkit-font-smoothing:antialiased; text-rendering:optimizeLegibility; overflow-x:hidden;
+}
+body::before{
+  content:""; position:fixed; inset:0; pointer-events:none; z-index:-1; opacity:.32;
+  background-image:linear-gradient(rgba(61,111,144,.035) 1px,transparent 1px),linear-gradient(90deg,rgba(61,111,144,.035) 1px,transparent 1px);
+  background-size:48px 48px; mask-image:linear-gradient(to bottom,rgba(0,0,0,.7),transparent 82%);
+}
+::selection{background:var(--blue-wash);color:var(--blue-deep)}
+a{color:var(--blue-deep);text-decoration-thickness:1px;text-underline-offset:3px}
+a:hover{color:var(--blue)}
+button,select,input{font:inherit}
+button{cursor:pointer}
+:focus-visible{outline:2px solid var(--blue);outline-offset:3px}
+.skip-link{position:fixed;left:16px;top:-80px;z-index:200;padding:10px 14px;background:var(--ink);color:#fff;text-decoration:none;border-radius:3px}
+.skip-link:focus{top:12px}
+.sr-only{position:absolute;width:1px;height:1px;padding:0;margin:-1px;overflow:hidden;clip:rect(0,0,0,0);white-space:nowrap;border:0}
+
+/* ===== Fixed header / pipeline ===== */
+.site-header{position:fixed;inset:0 0 auto 0;z-index:100;background:rgba(242,247,245,.95);border-bottom:1px solid var(--line);box-shadow:0 9px 28px rgba(30,58,66,.07);backdrop-filter:blur(14px)}
+.topline,.pipeline-bar{max-width:var(--max);margin:0 auto;padding-left:24px;padding-right:24px}
+.topline{height:58px;display:flex;align-items:center;gap:22px}
+.brand{display:flex;align-items:center;gap:11px;min-width:max-content;color:var(--ink);text-decoration:none}
+.brand-mark{width:36px;height:36px;display:grid;place-items:center;border:1px solid var(--blue);color:var(--blue-deep);background:linear-gradient(135deg,rgba(255,255,255,.7),rgba(219,232,238,.65)),repeating-linear-gradient(90deg,transparent 0 5px,rgba(61,111,144,.09) 5px 6px);box-shadow:inset 0 1px 0 #fff,inset 0 -2px 5px rgba(61,111,144,.09);font-family:var(--mono);font-size:.72rem;font-weight:700;letter-spacing:.12em}
+.brand-title{display:block;font-family:var(--serif);font-size:1.03rem;font-weight:700;line-height:1.15;letter-spacing:.03em}
+.brand-sub{display:block;margin-top:3px;font-family:var(--mono);font-size:.57rem;line-height:1;letter-spacing:.16em;color:var(--muted)}
+.chapter-nav{display:flex;align-items:center;gap:1px;margin-left:auto;overflow-x:auto;scrollbar-width:none}
+.chapter-nav::-webkit-scrollbar{display:none}
+.chapter-nav a{flex:0 0 auto;padding:8px 10px;color:var(--muted);text-decoration:none;font-size:.79rem;letter-spacing:.02em;border-bottom:1px solid transparent}
+.chapter-nav a:hover,.chapter-nav a.active{color:var(--blue-deep);border-bottom-color:var(--blue)}
+.chapter-nav a.active{font-weight:700}
+.offline-badge{flex:0 0 auto;padding:5px 8px;border:1px solid var(--line-strong);color:var(--green-deep);background:rgba(223,235,228,.72);font-family:var(--mono);font-size:.57rem;letter-spacing:.12em}
+.pipeline-bar{padding-bottom:9px}
+.pipeline{position:relative;display:grid;grid-template-columns:repeat(6,1fr);gap:0;margin:0;padding:0;list-style:none}
+.pipeline::before{content:"";position:absolute;left:8%;right:8%;top:9px;height:1px;background:var(--line);z-index:0}
+.pipeline li{position:relative;z-index:1}
+.pipeline a{display:flex;flex-direction:column;align-items:center;gap:5px;color:var(--muted);text-decoration:none;font-size:.69rem;line-height:1.25;letter-spacing:.02em}
+.pipeline .dot{width:9px;height:9px;border:1px solid var(--line-strong);border-radius:50%;background:var(--panel);box-shadow:0 0 0 4px rgba(242,247,245,.92);transition:background .18s ease,border-color .18s ease,box-shadow .18s ease}
+.pipeline a:hover{color:var(--blue-deep)}
+.pipeline a.passed .dot{background:var(--green);border-color:var(--green)}
+.pipeline a.active{color:var(--blue-deep);font-weight:700}
+.pipeline a.active .long-label,.pipeline a.active .short-label{text-decoration:underline;text-decoration-thickness:2px;text-underline-offset:4px}
+.short-label{display:none}
+.pipeline a.active .dot{background:var(--blue);border-color:var(--blue);box-shadow:0 0 0 4px var(--blue-wash)}
+.progress-rail{position:relative;height:2px;margin-top:6px;background:rgba(170,189,184,.45);overflow:hidden}
+.progress-rail span{position:absolute;inset:0 auto 0 0;width:0;background:linear-gradient(90deg,var(--blue),var(--green));transition:width .22s ease}
+
+/* ===== Hero ===== */
+.hero{max-width:var(--max);margin:0 auto;padding:66px 24px 78px;display:grid;grid-template-columns:minmax(0,1.08fr) minmax(360px,.92fr);gap:54px;align-items:center;position:relative}
+.hero-copy{position:relative}
+.eyebrow,.module-kicker,.section-index,.lab-kicker,.code-kicker{font-family:var(--mono);font-size:.68rem;letter-spacing:.17em;text-transform:uppercase;color:var(--blue);line-height:1.5}
+.eyebrow{display:flex;align-items:center;gap:12px;margin-bottom:20px}
+.eyebrow-en{white-space:nowrap}
+.eyebrow::before{content:"";width:36px;height:1px;background:var(--blue)}
+.hero h1{margin:0;max-width:12ch;font-family:var(--serif);font-weight:700;font-size:clamp(3.1rem,5.8vw,5.75rem);line-height:1.04;letter-spacing:-.035em}
+.hero h1 em{font-style:normal;color:var(--blue-deep);position:relative;display:inline-block;white-space:nowrap}
+.hero h1 em::after{content:"";position:absolute;left:.02em;right:auto;bottom:-.045em;width:66%;height:.032em;background:linear-gradient(90deg,var(--blue),rgba(61,111,144,.02));z-index:-1;opacity:.82}
+.hero-lead{max-width:39rem;margin:28px 0 0;color:var(--ink-2);font-size:1.06rem;line-height:1.92}
+.hero-meta{display:flex;flex-wrap:wrap;gap:8px;margin-top:24px}
+.chip{padding:5px 9px;border:1px solid var(--line);background:rgba(248,250,248,.68);color:var(--muted);font-family:var(--mono);font-size:.63rem;letter-spacing:.04em}
+.chip strong{color:var(--blue-deep);font-weight:700}
+.hero-actions{display:flex;flex-wrap:wrap;gap:12px;margin-top:32px}
+.btn{min-height:44px;padding:10px 18px;border:1px solid var(--line-strong);border-radius:3px;background:rgba(248,250,248,.82);color:var(--ink-2);text-decoration:none;line-height:1.4;display:inline-flex;align-items:center;justify-content:center;gap:9px;box-shadow:inset 0 1px 0 rgba(255,255,255,.8),0 4px 14px rgba(43,73,82,.05);transition:border-color .18s ease,background .18s ease,color .18s ease,box-shadow .18s ease}
+.btn:hover{color:var(--blue-deep);border-color:var(--blue);background:#fff;box-shadow:inset 0 1px 0 #fff,0 8px 18px rgba(43,73,82,.08)}
+.btn.primary{background:var(--blue-deep);border-color:var(--blue-deep);color:#f8fbfa}
+.btn.primary:hover{background:var(--blue);border-color:var(--blue);color:#fff}
+.btn.compact{min-height:38px;padding:7px 13px;font-size:.86rem}
+.btn:disabled{opacity:.42;cursor:not-allowed;box-shadow:none}
+.hero-note{margin-top:18px;color:var(--muted);font-size:.78rem;line-height:1.65}
+.hero-note code{font-family:var(--mono);font-size:.92em;color:var(--ink-2)}
+.hero-visual{position:relative;min-height:474px;padding:22px 22px 18px;background:linear-gradient(160deg,rgba(255,255,255,.66),rgba(223,235,228,.36) 58%,rgba(219,232,238,.34)),radial-gradient(circle at 76% 18%,rgba(61,111,144,.10),transparent 15rem);border-top:1px solid var(--line-strong);border-bottom:1px solid var(--line-strong);box-shadow:inset 0 1px 0 rgba(255,255,255,.8),var(--shadow);overflow:hidden}
+.hero-visual::before{content:"";position:absolute;inset:0 auto 0 18px;width:1px;background:repeating-linear-gradient(to bottom,var(--line-strong) 0 5px,transparent 5px 11px);opacity:.55}
+.visual-head{display:flex;align-items:center;justify-content:space-between;gap:12px;padding-left:14px;position:relative;z-index:1}
+.visual-title{font-family:var(--mono);font-size:.62rem;letter-spacing:.18em;color:var(--blue-deep)}
+.visual-id{font-family:var(--mono);font-size:.57rem;letter-spacing:.12em;color:var(--muted)}
+.hero-svg{display:block;width:100%;height:auto;margin-top:8px;position:relative;z-index:1}
+.visual-caption{position:relative;z-index:1;margin:6px 0 0 14px;padding-top:12px;border-top:1px solid var(--line);color:var(--muted);font-size:.75rem;line-height:1.6}
+.hero-svg .gridline{stroke:rgba(61,111,144,.12);stroke-width:1}
+.hero-svg .branch{fill:none;stroke:var(--line-strong);stroke-width:1.4}
+.hero-svg .branch.dashed{stroke-dasharray:5 6;opacity:.7}
+.hero-svg .node rect{fill:rgba(248,250,248,.92);stroke:var(--line-strong);stroke-width:1}
+.hero-svg .node.root rect{fill:var(--blue-deep);stroke:var(--blue-deep)}
+.hero-svg .node.yes rect{fill:var(--green-wash);stroke:var(--green)}
+.hero-svg .node.no rect{fill:var(--red-wash);stroke:var(--red)}
+.hero-svg .node text{font-family:var(--sans);font-size:12px;fill:var(--ink);text-anchor:middle}
+.hero-svg .node.root text{fill:#f4f9f7}
+.hero-svg .node .small{font-family:var(--mono);font-size:9px;fill:var(--muted);letter-spacing:.03em}
+.hero-svg .node.root .small{fill:#bed1d8}
+.hero-svg .edge-label{font-family:var(--mono);font-size:9px;fill:var(--muted);text-anchor:middle;paint-order:stroke;stroke:var(--panel);stroke-width:4px}
+
+/* ===== Section scaffolding ===== */
+.stage{max-width:var(--max);margin:0 auto;padding:78px 24px 92px;border-top:1px solid rgba(170,189,184,.55);scroll-margin-top:128px;position:relative}
+.section-head{display:grid;grid-template-columns:118px minmax(0,1fr) minmax(210px,.42fr);gap:30px;align-items:start;margin-bottom:42px}
+.section-index{padding-top:9px;color:var(--blue)}
+.section-index span{display:block;color:var(--line-strong);font-size:1.6rem;letter-spacing:.02em;line-height:1;margin-bottom:8px}
+.section-heading h2{margin:7px 0 0;font-family:var(--serif);font-weight:700;font-size:clamp(2.1rem,3.8vw,3.55rem);line-height:1.12;letter-spacing:-.025em;white-space:nowrap}
+.section-deck{margin:0;padding:7px 0 0 18px;border-left:1px solid var(--line-strong);color:var(--muted);font-size:.91rem;line-height:1.75}
+.section-content{margin-left:148px}
+.section-content.wide{margin-left:0}
+.concept-block{position:relative;margin:0 0 34px;padding:4px 0 14px 24px;border-left:2px solid var(--blue);background:linear-gradient(90deg,rgba(219,232,238,.36),transparent 76%)}
+.concept-block h3,.subsection-title{margin:0 0 12px;font-family:var(--serif);font-size:1.45rem;line-height:1.32;letter-spacing:-.01em}
+.concept-block p{margin:0 0 12px;color:var(--ink-2)}
+.concept-block p:last-child{margin-bottom:0}
+.module-kicker{margin-bottom:10px;display:block;color:var(--green-deep)}
+.em{color:var(--blue-deep);font-weight:700}
+.small-note{font-size:.82rem;color:var(--muted);line-height:1.72}
+.takeaway{margin:28px 0 0;padding:16px 20px;border-top:1px solid var(--line-strong);border-bottom:1px solid var(--line-strong);background:linear-gradient(90deg,rgba(223,235,228,.54),rgba(223,235,228,.08));color:var(--ink-2);font-size:.93rem}
+.takeaway strong{color:var(--green-deep)}
+.callout{margin:24px 0;padding:16px 19px 16px 21px;border-left:3px solid var(--green);background:linear-gradient(90deg,rgba(223,235,228,.56),rgba(223,235,228,.08));color:var(--ink-2);font-size:.9rem;line-height:1.76}
+.callout.warning{border-left-color:var(--red);background:linear-gradient(90deg,rgba(241,225,222,.62),rgba(241,225,222,.08))}
+.callout .label{display:block;margin-bottom:4px;font-family:var(--mono);font-size:.61rem;letter-spacing:.16em;color:var(--green-deep);text-transform:uppercase}
+.callout.warning .label{color:var(--red-deep)}
+
+/* ===== Math definition module ===== */
+.definition{position:relative;margin:28px 0;padding:28px 32px 28px 34px;background:linear-gradient(180deg,rgba(255,255,255,.58),rgba(255,255,255,.12)),repeating-linear-gradient(0deg,transparent 0 31px,rgba(61,111,144,.055) 31px 32px);border-top:1px solid var(--line-strong);border-bottom:1px solid var(--line-strong);border-left:6px solid var(--blue-wash);box-shadow:inset 0 1px 0 rgba(255,255,255,.8),0 16px 36px rgba(43,73,82,.07)}
+.definition::before{content:"DEFINITION";position:absolute;right:18px;top:12px;font-family:var(--mono);font-size:.56rem;letter-spacing:.16em;color:var(--line-strong)}
+.definition h3{margin:0 0 14px;font-family:var(--serif);font-size:1.38rem;line-height:1.35}
+.definition p{margin:0 0 10px;color:var(--ink-2);font-size:.92rem}
+.definition .fine{font-size:.78rem;color:var(--muted);line-height:1.72}
+.formula-list{display:grid;gap:0;margin:16px 0 8px}
+.formula-row{display:grid;grid-template-columns:178px minmax(0,1fr);gap:20px;align-items:center;padding:13px 0;border-top:1px solid rgba(170,189,184,.45)}
+.formula-row:first-child{border-top:0}
+.formula-label{font-family:var(--mono);font-size:.64rem;letter-spacing:.08em;color:var(--muted);line-height:1.55}
+.formula{min-width:0;overflow-x:auto;overflow-y:hidden;padding:4px 2px 5px;font-size:1.34rem;line-height:2.05;color:var(--ink);scrollbar-width:thin}
+.tex{display:inline-block;white-space:nowrap;font-family:"STIX Two Math","Cambria Math",var(--serif);letter-spacing:.005em}
+.tex i{font-family:"Times New Roman",var(--serif);font-style:italic;padding-right:.01em}
+.tex .roman,.tex .text{font-style:normal;font-family:var(--sans);font-size:.9em}
+.tex .text{padding:0 .08em}
+.tex sup,.tex sub{font-size:.62em;line-height:0}
+.tex .frac{display:inline-flex;flex-direction:column;vertical-align:middle;text-align:center;line-height:1.03;margin:0 .13em;transform:translateY(-.03em)}
+.tex .frac .num{border-bottom:1px solid currentColor;padding:0 .18em .06em}
+.tex .frac .den{padding:.06em .18em 0}
+.tex .sumop{display:inline-flex;flex-direction:column;align-items:center;vertical-align:middle;margin:0 .12em;line-height:1}
+.tex .sumop .sig{font-family:"Cambria Math",var(--serif);font-size:1.55em;line-height:.86}
+.tex .sumop .lim{font-size:.58em;line-height:1.1;white-space:nowrap}
+.tex .sumop .lim.sup{transform:translateY(.1em)}
+.tex .sumop .lim.low{transform:translateY(-.05em)}
+.tex .hat{display:inline-flex;flex-direction:column;align-items:center;line-height:1}
+.tex .hat::before{content:"^";font-size:.7em;line-height:.8}
+.tex-inline{white-space:nowrap}
+.formula-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:0 28px}
+.formula-grid .formula-row{grid-template-columns:1fr;gap:3px;border-top:1px solid rgba(170,189,184,.45)}
+.formula-grid .formula-label{order:2}
+.formula-grid .formula{order:1}
+
+/* ===== Lab module ===== */
+.lab{position:relative;margin:30px 0;padding:24px;background:linear-gradient(135deg,rgba(223,235,228,.64),rgba(248,250,248,.82) 55%),radial-gradient(circle at 92% 8%,rgba(61,111,144,.10),transparent 18rem);border:1px solid var(--line);box-shadow:inset 0 1px 0 rgba(255,255,255,.85),var(--shadow-soft);clip-path:polygon(0 0,calc(100% - 23px) 0,100% 23px,100% 100%,0 100%)}
+.lab::before{content:"";position:absolute;left:0;right:0;top:0;height:3px;background:linear-gradient(90deg,var(--blue),var(--green) 58%,transparent 58%);opacity:.7}
+.lab-head{display:flex;align-items:flex-start;justify-content:space-between;gap:22px;margin-bottom:20px;padding-right:16px}
+.lab-kicker{color:var(--green-deep);margin-bottom:5px}
+.lab-title{margin:0;font-family:var(--serif);font-size:1.48rem;line-height:1.3;letter-spacing:-.01em}
+.lab-sub{margin:5px 0 0;color:var(--muted);font-size:.82rem;line-height:1.6}
+.lab-mark{font-family:var(--mono);font-size:.6rem;letter-spacing:.12em;color:var(--line-strong);white-space:nowrap;padding-top:5px}
+.control-row{display:flex;flex-wrap:wrap;align-items:center;gap:12px 18px;margin:0 0 20px;padding:12px 14px;border:1px solid rgba(170,189,184,.62);background:rgba(248,250,248,.6)}
+.control-row label{font-size:.82rem;color:var(--ink-2);white-space:nowrap}
+.control-row .grow{flex:1 1 240px;min-width:180px}
+input[type="range"]{-webkit-appearance:none;appearance:none;width:100%;height:24px;background:transparent;margin:0 0 0 1px;accent-color:var(--blue)}
+input[type="range"]::-webkit-slider-runnable-track{height:4px;background:linear-gradient(90deg,var(--blue-wash),var(--blue));border:1px solid var(--line-strong)}
+input[type="range"]::-webkit-slider-thumb{-webkit-appearance:none;width:18px;height:18px;margin-top:-8px;border:2px solid var(--panel);background:var(--blue-deep);border-radius:50%;box-shadow:0 0 0 1px var(--blue-deep),0 3px 8px rgba(36,75,99,.25)}
+input[type="range"]::-moz-range-track{height:4px;background:linear-gradient(90deg,var(--blue-wash),var(--blue));border:1px solid var(--line-strong)}
+input[type="range"]::-moz-range-thumb{width:16px;height:16px;border:2px solid var(--panel);background:var(--blue-deep);border-radius:50%;box-shadow:0 0 0 1px var(--blue-deep)}
+.range-ends{display:flex;justify-content:space-between;gap:12px;margin-top:-2px;font-family:var(--mono);font-size:.58rem;color:var(--muted);letter-spacing:.04em}
+.readout{display:flex;flex-wrap:wrap;gap:0;border:1px solid rgba(170,189,184,.62);background:rgba(248,250,248,.66)}
+.readout-item{flex:1 1 130px;padding:10px 14px;border-left:1px solid rgba(170,189,184,.45)}
+.readout-item:first-child{border-left:0}
+.readout-item span{display:block;font-family:var(--mono);font-size:.58rem;letter-spacing:.08em;color:var(--muted);line-height:1.5}
+.readout-item strong{display:block;margin-top:2px;font-family:var(--mono);font-size:1.05rem;font-weight:600;color:var(--blue-deep);line-height:1.35}
+.readout-item.green strong{color:var(--green-deep)}
+.readout-item.red strong{color:var(--red-deep)}
+.lab-note{color:var(--muted);font-size:.78rem;line-height:1.7}
+.lab-note strong{color:var(--ink-2)}
+.scroll-hint{display:block;width:fit-content;margin:4px 0 8px;padding:4px 8px;border-left:2px solid var(--blue);background:rgba(219,232,238,.38);font-family:var(--mono);font-size:.59rem;letter-spacing:.06em;color:var(--blue-deep)}
+.sim-grid{display:grid;grid-template-columns:minmax(240px,.78fr) minmax(360px,1.22fr);gap:22px;align-items:stretch}
+.sample-panel,.curve-panel{min-width:0;border:1px solid rgba(170,189,184,.58);background:rgba(248,250,248,.62);box-shadow:inset 0 1px 0 rgba(255,255,255,.7)}
+.panel-head{display:flex;align-items:center;justify-content:space-between;gap:10px;padding:9px 12px;border-bottom:1px solid rgba(170,189,184,.45);font-family:var(--mono);font-size:.59rem;letter-spacing:.1em;color:var(--muted)}
+.sample-svg,.curve-svg{display:block;width:100%;height:auto}
+.sample-svg .dot{stroke:rgba(255,255,255,.88);stroke-width:1.1;transition:fill .16s ease}
+.sample-svg .dot.yes{fill:var(--red)}
+.sample-svg .dot.no{fill:var(--blue)}
+.sample-svg .frame{fill:none;stroke:rgba(170,189,184,.5);stroke-width:1}
+.legend{display:flex;flex-wrap:wrap;gap:10px 16px;padding:8px 12px 11px;font-size:.68rem;color:var(--muted)}
+.legend span{display:inline-flex;align-items:center;gap:6px}
+.legend i{display:inline-block;width:10px;height:10px;border-radius:50%}
+.legend .yes{background:var(--red)}
+.legend .no{background:var(--blue)}
+.curve-svg .axis{stroke:var(--line-strong);stroke-width:1}
+.curve-svg .grid{stroke:rgba(170,189,184,.42);stroke-width:1}
+.curve-svg .tick{font-family:var(--mono);font-size:9px;fill:var(--muted)}
+.curve-svg .axis-label{font-family:var(--sans);font-size:10px;fill:var(--muted)}
+.curve-svg .curve-h{fill:none;stroke:var(--blue);stroke-width:2.2}
+.curve-svg .curve-g{fill:none;stroke:var(--green-deep);stroke-width:2.2;stroke-dasharray:6 5}
+.curve-svg .cursor{stroke:var(--ink);stroke-width:1;stroke-dasharray:3 4;opacity:.55}
+.curve-svg .point-h{fill:var(--blue);stroke:#fff;stroke-width:1.5}
+.curve-svg .point-g{fill:var(--green-deep);stroke:#fff;stroke-width:1.5}
+.curve-svg .tag{font-family:var(--mono);font-size:9px;fill:var(--ink);paint-order:stroke;stroke:#f8faf8;stroke-width:4px}
+
+/* ===== Tables ===== */
+.table-wrap{width:100%;overflow-x:auto;border:1px solid var(--line);background:rgba(248,250,248,.62)}
+.data-table{width:100%;border-collapse:collapse;font-size:.8rem;line-height:1.55;min-width:560px}
+.data-table caption{caption-side:top;padding:10px 12px;text-align:left;font-family:var(--mono);font-size:.6rem;letter-spacing:.1em;color:var(--muted);border-bottom:1px solid var(--line);background:rgba(238,243,242,.7)}
+.data-table th,.data-table td{padding:7px 10px;border-bottom:1px solid rgba(170,189,184,.34);text-align:left;white-space:nowrap}
+.data-table th{background:rgba(219,232,238,.42);color:var(--blue-deep);font-weight:600;font-size:.73rem;letter-spacing:.02em}
+.data-table tbody tr:last-child td{border-bottom:0}
+.data-table tbody tr:nth-child(even){background:rgba(223,235,228,.18)}
+.data-table tbody tr.highlight{background:rgba(241,225,222,.42)}
+.data-table .num{font-family:var(--mono);font-size:.74rem}
+.data-table .yes{color:var(--green-deep);font-weight:700}
+.data-table .no{color:var(--red-deep);font-weight:700}
+
+/* ===== Growth lab ===== */
+.dataset-grid{display:grid;grid-template-columns:minmax(0,1.2fr) minmax(300px,.8fr);gap:22px;margin:26px 0}
+.gain-panel{border:1px solid var(--line);background:rgba(248,250,248,.62);padding:16px 18px;box-shadow:inset 0 1px 0 #fff}
+.gain-panel h3{margin:0 0 8px;font-family:var(--serif);font-size:1.18rem}
+.gain-panel .H-line{font-family:var(--mono);font-size:.7rem;color:var(--muted);margin-bottom:10px}
+.gain-row{display:grid;grid-template-columns:72px minmax(0,1fr) 58px;gap:9px;align-items:center;margin:7px 0;font-size:.77rem}
+.gain-row .name{color:var(--ink-2);font-weight:600}
+.gain-row .bar{height:8px;background:rgba(219,232,238,.58);position:relative;overflow:hidden}
+.gain-row .bar span{display:block;height:100%;background:linear-gradient(90deg,var(--blue),var(--green));opacity:.82}
+.gain-row .val{font-family:var(--mono);font-size:.69rem;color:var(--blue-deep);text-align:right}
+.growth-lab{padding-bottom:20px}
+.growth-stage{display:grid;grid-template-columns:minmax(0,1.35fr) minmax(260px,.65fr);gap:24px;align-items:stretch;margin-top:6px}
+.tree-viewport{min-width:0;overflow-x:auto;overflow-y:hidden;border:1px solid rgba(170,189,184,.55);background:rgba(248,250,248,.48);scrollbar-width:thin;scrollbar-color:var(--line-strong) transparent}
+.growth-tree{display:block;width:760px;max-width:none;height:auto}
+.growth-side{display:flex;flex-direction:column;gap:14px;min-width:0}
+.step-counter{font-family:var(--mono);font-size:.62rem;letter-spacing:.1em;color:var(--green-deep)}
+.step-copy{min-height:170px;padding:14px 16px;border-left:2px solid var(--blue);background:linear-gradient(90deg,rgba(219,232,238,.38),transparent);font-size:.85rem;line-height:1.75;color:var(--ink-2)}
+.step-copy strong{color:var(--ink)}
+.step-copy .mini{display:block;margin-top:8px;font-size:.73rem;color:var(--muted);line-height:1.65}
+.step-actions{display:flex;flex-wrap:wrap;gap:9px}
+
+/* SVG tree shared */
+.tree-svg{display:block;width:100%;height:auto;overflow:visible}
+.tree-edge{fill:none;stroke:var(--line-strong);stroke-width:1.35}
+.tree-edge.faint{stroke-dasharray:4 5;opacity:.45}
+.edge-label{font-family:var(--mono);font-size:10px;fill:var(--muted);text-anchor:middle;paint-order:stroke;stroke:#f4f8f6;stroke-width:5px;stroke-linejoin:round}
+.tree-node{cursor:pointer;transition:opacity .18s ease,transform .18s ease;transform-box:fill-box;transform-origin:center}
+.tree-node:hover{transform:translateY(-1px)}
+.node-box{fill:rgba(248,250,248,.96);stroke:var(--line-strong);stroke-width:1.1}
+.node-box.internal{fill:rgba(248,250,248,.96)}
+.node-box.yes{fill:var(--green-wash);stroke:var(--green)}
+.node-box.no{fill:var(--red-wash);stroke:var(--red)}
+.node-box.pending{fill:rgba(239,232,215,.68);stroke:var(--amber);stroke-dasharray:4 3}
+.node-box.active{stroke:var(--blue);stroke-width:2.4}
+.tree-node text.node-main{font-family:var(--sans);font-size:12px;font-weight:600;fill:var(--ink);text-anchor:middle}
+.tree-node text.node-sub{font-family:var(--mono);font-size:9px;fill:var(--muted);text-anchor:middle;letter-spacing:.02em}
+.tree-node.leaf-yes text.node-main{fill:var(--green-deep)}
+.tree-node.leaf-no text.node-main{fill:var(--red-deep)}
+.tree-node.pending text.node-main{fill:var(--amber)}
+.tree-node.hidden{opacity:0;pointer-events:none}
+.node-focus-ring{fill:none;stroke:var(--blue);stroke-width:2;opacity:0}
+.tree-node:focus-visible .node-focus-ring{opacity:1}
+.tree-scroll-caption{font-family:var(--mono);font-size:.58rem;letter-spacing:.06em;color:var(--muted);margin-top:6px}
+
+/* ===== Algorithm lab ===== */
+.compare-controls{display:flex;flex-wrap:wrap;align-items:center;gap:14px 18px;padding:14px 16px;border:1px solid rgba(170,189,184,.62);background:rgba(248,250,248,.64);margin-bottom:18px}
+.select-wrap{position:relative;display:inline-flex;align-items:center}
+.select-wrap::after{content:"▾";position:absolute;right:12px;pointer-events:none;color:var(--blue-deep);font-size:.72rem}
+select{min-width:190px;min-height:42px;padding:8px 36px 8px 12px;border:1px solid var(--line-strong);border-radius:2px;background:#fafcfb;color:var(--ink);font-size:.9rem;appearance:none;box-shadow:inset 0 1px 0 #fff}
+.compare-controls .control-note{flex:1 1 320px;color:var(--muted);font-size:.78rem;line-height:1.6}
+.metric-strip{display:flex;flex-wrap:wrap;border-top:1px solid var(--line);border-bottom:1px solid var(--line);margin:0 0 18px;background:rgba(248,250,248,.35)}
+.metric-strip .metric{flex:1 1 140px;padding:10px 14px;border-left:1px solid rgba(170,189,184,.45)}
+.metric-strip .metric:first-child{border-left:0}
+.metric span{display:block;font-family:var(--mono);font-size:.57rem;letter-spacing:.09em;color:var(--muted)}
+.metric strong{display:block;margin-top:2px;color:var(--ink);font-size:.9rem;line-height:1.4}
+.metric strong.mono{font-family:var(--mono);font-size:.78rem;color:var(--blue-deep)}
+.algo-tree-shell{border:1px solid rgba(170,189,184,.55);background:rgba(248,250,248,.48);overflow-x:auto;overflow-y:hidden;scrollbar-width:thin;scrollbar-color:var(--line-strong) transparent}
+.algo-tree-shell svg{display:block;height:auto;max-width:none}
+.algorithm-note{display:grid;grid-template-columns:minmax(0,1fr) minmax(260px,.52fr);gap:22px;align-items:start;margin-top:18px}
+.algorithm-note .note-main{border-left:2px solid var(--green);padding:12px 16px;background:linear-gradient(90deg,rgba(223,235,228,.45),transparent);font-size:.86rem;color:var(--ink-2)}
+.algorithm-note .note-main strong{color:var(--green-deep)}
+.score-table{font-size:.72rem;width:100%;min-width:0;table-layout:fixed}
+.score-table th,.score-table td{padding:6px 6px;white-space:normal;overflow-wrap:anywhere;line-height:1.45}
+.score-table th:nth-child(1){width:30%}.score-table th:nth-child(2){width:28%}.score-table th:nth-child(3){width:42%}
+.score-table .selected{background:rgba(219,232,238,.48);font-weight:700;color:var(--blue-deep)}
+
+/* ===== Depth lab ===== */
+.depth-controls{display:flex;align-items:center;gap:16px;flex-wrap:wrap;margin-bottom:16px;padding:13px 15px;border:1px solid rgba(170,189,184,.62);background:rgba(248,250,248,.6)}
+.depth-controls .label{font-family:var(--mono);font-size:.62rem;letter-spacing:.1em;color:var(--muted);white-space:nowrap}
+.depth-controls input{flex:1 1 260px}
+.depth-controls .min-leaf-input{flex:0 1 190px}
+.depth-grid{display:grid;grid-template-columns:1fr;gap:22px;align-items:stretch}
+.depth-tree-panel,.depth-chart-panel{min-width:0;border:1px solid rgba(170,189,184,.55);background:rgba(248,250,248,.52);overflow:hidden}
+.depth-tree-scroll{overflow-x:auto;overflow-y:hidden;min-height:360px;padding:8px 0 4px;scrollbar-width:thin;scrollbar-color:var(--line-strong) transparent}
+.depth-tree-scroll svg{display:block;height:auto;max-width:none}
+.depth-chart-panel{padding:10px 12px 12px;width:100%;max-width:760px;margin:0 auto}
+.depth-chart-panel .panel-head{padding:3px 2px 9px;border-bottom:1px solid rgba(170,189,184,.4);margin-bottom:8px}
+.depth-chart{display:block;width:100%;height:auto}
+.depth-chart .axis{stroke:var(--line-strong);stroke-width:1}
+.depth-chart .grid{stroke:rgba(170,189,184,.4);stroke-width:1}
+.depth-chart .tick{font-family:var(--mono);font-size:9px;fill:var(--muted)}
+.depth-chart .axis-label{font-family:var(--sans);font-size:10px;fill:var(--muted)}
+.depth-chart .train{fill:none;stroke:var(--blue);stroke-width:2.2}
+.depth-chart .test{fill:none;stroke:var(--red);stroke-width:2.2;stroke-dasharray:6 5}
+.depth-chart .current{stroke:var(--ink);stroke-width:1;stroke-dasharray:3 3;opacity:.5}
+.depth-chart .train-dot{fill:var(--blue);stroke:#fff;stroke-width:1.4}
+.depth-chart .test-dot{fill:var(--red);stroke:#fff;stroke-width:1.4}
+.depth-chart .best-line{stroke:var(--green-deep);stroke-width:1;stroke-dasharray:2 4;opacity:.7}
+.depth-chart .best-label{font-family:var(--mono);font-size:9px;fill:var(--green-deep)}
+.chart-legend{display:flex;flex-wrap:wrap;gap:8px 14px;padding:8px 2px 0;font-size:.68rem;color:var(--muted)}
+.chart-legend span{display:inline-flex;align-items:center;gap:6px}
+.chart-legend i{display:block;width:20px;height:0;border-top:2px solid var(--blue)}
+.chart-legend .test i{border-top:2px dashed var(--red)}
+.status-line{margin-top:12px;padding:11px 13px;border-left:3px solid var(--green);background:rgba(223,235,228,.38);font-size:.82rem;line-height:1.65;color:var(--ink-2)}
+.status-line.warning{border-left-color:var(--red);background:rgba(241,225,222,.34)}
+.status-line.balanced{border-left-color:var(--amber);background:rgba(239,232,215,.34)}
+.status-line strong{color:var(--ink)}
+.metric-mini{display:flex;flex-wrap:wrap;gap:0;margin-top:10px;border:1px solid rgba(170,189,184,.45);background:rgba(248,250,248,.5)}
+.metric-mini div{flex:1 1 110px;padding:8px 10px;border-left:1px solid rgba(170,189,184,.35)}
+.metric-mini div:first-child{border-left:0}
+.metric-mini span{display:block;font-family:var(--mono);font-size:.55rem;letter-spacing:.08em;color:var(--muted)}
+.metric-mini strong{display:block;font-family:var(--mono);font-size:.78rem;color:var(--ink);margin-top:1px}
+
+/* ===== Code module ===== */
+.code-lab{position:relative;margin:28px 0;padding:0;background:var(--code);color:var(--code-text);border:1px solid #29414b;border-left:5px solid var(--green);box-shadow:0 24px 48px rgba(17,35,43,.18);overflow:hidden}
+.code-head{display:flex;align-items:center;justify-content:space-between;gap:16px;padding:13px 18px;border-bottom:1px solid rgba(197,220,216,.16);background:rgba(255,255,255,.025)}
+.code-file{font-family:var(--mono);font-size:.7rem;letter-spacing:.06em;color:#b9cecc}
+.code-file span{color:#7e9a9a}
+.copy-btn{min-height:34px;padding:5px 11px;border:1px solid rgba(197,220,216,.28);background:rgba(255,255,255,.04);color:#d8e6e4;font-family:var(--mono);font-size:.63rem;letter-spacing:.06em;border-radius:2px}
+.copy-btn:hover{background:rgba(255,255,255,.09);border-color:rgba(197,220,216,.5)}
+.code-layout{display:grid;grid-template-columns:minmax(0,1.4fr) minmax(260px,.6fr);gap:0}
+.code-scroll{overflow-x:auto;min-width:0}
+pre.code-block{margin:0;padding:20px 20px 24px;font-family:var(--mono);font-size:.79rem;line-height:1.8;color:#d8e6e4;tab-size:4}
+pre.code-block code{font-family:inherit}
+.code-comment{color:#7f9e99}
+.code-keyword{color:#b9d4e8}
+.code-string{color:#c9d7a8}
+.code-number{color:#d9c3a4}
+.code-notes{padding:20px 20px 22px;border-left:1px solid rgba(197,220,216,.15);background:rgba(255,255,255,.025);color:#b9cecc;font-size:.78rem;line-height:1.75}
+.code-notes h3{margin:0 0 10px;font-family:var(--serif);font-size:1.08rem;color:#e8f0ee;font-weight:600}
+.code-notes ol{margin:0;padding-left:18px}
+.code-notes li{margin:0 0 8px}
+.code-notes strong{color:#e4efeb}
+.code-notes code{font-family:var(--mono);font-size:.9em;color:#d2e4dc;background:rgba(255,255,255,.06);padding:1px 4px}
+.output-note{margin-top:14px;padding-top:10px;border-top:1px solid rgba(197,220,216,.14);font-size:.7rem;color:#8fa9a4;line-height:1.65}
+
+/* ===== Self check / closing ===== */
+.self-check{margin-top:26px;border-top:1px solid var(--line-strong);border-bottom:1px solid var(--line-strong);background:rgba(248,250,248,.42)}
+.self-check summary{cursor:pointer;padding:14px 18px;font-family:var(--serif);font-size:1.04rem;color:var(--ink);list-style:none;display:flex;align-items:center;justify-content:space-between;gap:12px}
+.self-check summary::-webkit-details-marker{display:none}
+.self-check summary::after{content:"+";font-family:var(--mono);color:var(--blue);font-size:1.1rem}
+.self-check[open] summary::after{content:"−"}
+.self-check .answer{padding:0 18px 17px;color:var(--ink-2);font-size:.86rem;line-height:1.8}
+.chain{display:flex;flex-wrap:wrap;align-items:center;gap:9px;margin:22px 0 0;font-family:var(--mono);font-size:.64rem;color:var(--muted)}
+.chain span{padding:6px 9px;border:1px solid var(--line);background:rgba(248,250,248,.6)}
+.chain b{color:var(--green-deep);font-weight:400}
+.closing-quote{margin:32px 0 0;padding:24px 0 8px 24px;border-left:2px solid var(--green);font-family:var(--serif);font-size:1.18rem;line-height:1.7;color:var(--ink-2)}
+.closing-quote small{display:block;margin-top:8px;font-family:var(--mono);font-size:.58rem;letter-spacing:.12em;color:var(--muted)}
+
+/* ===== Dialog ===== */
+dialog.node-dialog{width:min(560px,calc(100vw - 30px));max-height:84vh;padding:0;border:1px solid var(--line-strong);background:#f8faf8;color:var(--ink);box-shadow:0 30px 90px rgba(23,42,51,.26);border-radius:2px;overflow:auto}
+dialog.node-dialog::backdrop{background:rgba(22,42,50,.38);backdrop-filter:blur(2px)}
+.dialog-head{display:flex;align-items:flex-start;justify-content:space-between;gap:16px;padding:18px 20px 14px;border-bottom:1px solid var(--line);background:linear-gradient(90deg,rgba(219,232,238,.5),rgba(223,235,228,.24))}
+.dialog-kicker{font-family:var(--mono);font-size:.58rem;letter-spacing:.14em;color:var(--blue)}
+.dialog-title{margin:4px 0 0;font-family:var(--serif);font-size:1.32rem;line-height:1.3}
+.dialog-close{width:34px;height:34px;border:1px solid var(--line-strong);background:rgba(248,250,248,.7);color:var(--ink-2);font-size:1.2rem;line-height:1;border-radius:2px}
+.dialog-close:hover{background:#fff;color:var(--blue-deep)}
+.dialog-body{padding:18px 20px 22px}
+.dialog-path{margin:0 0 14px;padding:9px 11px;border:1px solid var(--line);background:rgba(238,243,242,.65);font-family:var(--mono);font-size:.65rem;line-height:1.65;color:var(--muted);overflow-wrap:anywhere}
+.dialog-stats{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:0;border:1px solid var(--line);margin:0 0 14px}
+.dialog-stats div{padding:9px 10px;border-left:1px solid var(--line)}
+.dialog-stats div:first-child{border-left:0}
+.dialog-stats span{display:block;font-family:var(--mono);font-size:.55rem;letter-spacing:.06em;color:var(--muted)}
+.dialog-stats strong{display:block;margin-top:2px;font-family:var(--mono);font-size:.82rem;color:var(--ink)}
+.dialog-note{margin:0;color:var(--muted);font-size:.79rem;line-height:1.7}
+.dialog-note strong{color:var(--ink-2)}
+
+/* ===== Footer ===== */
+footer{max-width:var(--max);margin:0 auto;padding:48px 24px 64px;border-top:1px solid var(--line-strong);color:var(--muted);font-size:.78rem;line-height:1.75}
+.footer-grid{display:grid;grid-template-columns:minmax(0,1.2fr) minmax(280px,.8fr);gap:40px}
+footer h2{margin:0 0 10px;font-family:var(--serif);font-size:1.35rem;color:var(--ink)}
+footer ol{margin:0;padding-left:20px}
+footer li{margin:0 0 7px}
+footer a{color:var(--blue-deep)}
+.footer-note{padding:14px 16px;border-left:2px solid var(--green);background:rgba(223,235,228,.32);font-size:.73rem;color:var(--muted)}
+.footer-mark{margin-top:26px;padding-top:14px;border-top:1px solid var(--line);display:flex;flex-wrap:wrap;justify-content:space-between;gap:10px;font-family:var(--mono);font-size:.58rem;letter-spacing:.1em;color:var(--muted-2)}
+
+
+/* ===== Path tracer ===== */
+.path-scroll-hint{display:none}
+.path-controls label{display:flex;align-items:center;gap:7px}
+.path-controls select{min-width:132px}
+.path-quick{display:flex;flex-wrap:wrap;gap:7px;flex:1 1 100%}
+.path-grid{display:grid;grid-template-columns:minmax(0,1.35fr) minmax(260px,.65fr);gap:22px;align-items:stretch}
+.path-tree-shell{min-width:0;overflow-x:auto;overflow-y:hidden;border:1px solid rgba(170,189,184,.55);background:rgba(248,250,248,.48);scrollbar-width:thin;scrollbar-color:var(--line-strong) transparent}
+.path-tree-shell svg{display:block;width:100%;max-width:none;height:auto}
+.path-side{display:flex;flex-direction:column;gap:12px;min-width:0}
+.path-outcome{padding:16px 17px;border-left:3px solid var(--green);background:linear-gradient(90deg,rgba(223,235,228,.5),rgba(223,235,228,.08))}
+.path-outcome.no{border-left-color:var(--red);background:linear-gradient(90deg,rgba(241,225,222,.52),rgba(241,225,222,.08))}
+.path-outcome span{display:block;font-family:var(--mono);font-size:.58rem;letter-spacing:.12em;color:var(--muted)}
+.path-outcome strong{display:block;margin:2px 0 7px;font-family:var(--serif);font-size:1.45rem;color:var(--green-deep);line-height:1.2}
+.path-outcome.no strong{color:var(--red-deep)}
+.path-outcome code{display:block;font-family:var(--mono);font-size:.7rem;line-height:1.65;color:var(--ink-2);overflow-wrap:anywhere}
+.path-rule{margin:0;padding:11px 12px;border:1px solid var(--line);background:rgba(248,250,248,.68);font-family:var(--mono);font-size:.66rem;line-height:1.7;color:var(--muted);overflow-wrap:anywhere}
+.tree-edge.path-edge{stroke:var(--blue);stroke-width:2.6;opacity:1}
+.tree-edge.path-edge-muted{opacity:.18;stroke-dasharray:3 4}
+.tree-node.path-hit .node-box{stroke:var(--blue);stroke-width:2.8;filter:drop-shadow(0 2px 4px rgba(61,111,144,.16))}
+.tree-node.path-hit text.node-main{fill:var(--blue-deep)}
+.tree-node.path-hit.leaf-yes text.node-main{fill:var(--green-deep)}
+.tree-node.path-hit.leaf-no text.node-main{fill:var(--red-deep)}
+
+/* ===== High-cardinality bias lab ===== */
+.bias-toggle{display:inline-flex;align-items:center;gap:9px;padding:8px 11px;border:1px solid rgba(170,189,184,.6);background:rgba(248,250,248,.65);font-size:.82rem;color:var(--ink-2);cursor:pointer;user-select:none}
+.bias-toggle input{accent-color:var(--blue);width:16px;height:16px}
+.bias-grid{display:grid;grid-template-columns:minmax(0,1.25fr) minmax(260px,.75fr);gap:20px;margin-top:16px;align-items:start}
+.bias-panels{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:14px}
+.bias-panel{min-width:0;padding:12px 13px;border:1px solid rgba(170,189,184,.55);background:rgba(248,250,248,.58)}
+.bias-panel h4{margin:0 0 8px;font-family:var(--mono);font-size:.6rem;letter-spacing:.1em;color:var(--muted)}
+.bias-panel h4 b{color:var(--blue-deep);font-weight:600}
+.bias-row{display:grid;grid-template-columns:68px minmax(0,1fr) 48px;gap:7px;align-items:center;margin:7px 0;padding:3px 4px;font-size:.72rem}
+.bias-row.selected{background:rgba(219,232,238,.54);box-shadow:inset 2px 0 0 var(--blue)}
+.bias-row .name{font-family:var(--mono);font-size:.62rem;color:var(--ink-2);overflow:hidden;text-overflow:ellipsis}
+.bias-row .track{height:7px;background:rgba(219,232,238,.48);overflow:hidden}
+.bias-row .track span{display:block;height:100%;background:linear-gradient(90deg,var(--blue),var(--green));opacity:.82}
+.bias-row.ratio .track span{background:linear-gradient(90deg,var(--green),var(--blue))}
+.bias-row .val{font-family:var(--mono);font-size:.61rem;text-align:right;color:var(--blue-deep)}
+.bias-row.id-row .name{color:var(--amber)}
+.bias-side{display:flex;flex-direction:column;gap:11px;min-width:0}
+.bias-side .readout-item{flex-basis:100%;border-left:0;border-top:1px solid rgba(170,189,184,.35)}
+.bias-side .readout-item:first-child{border-top:0}
+.bias-note{margin:0;padding:11px 13px;border-left:3px solid var(--amber);background:rgba(239,232,215,.34);font-size:.79rem;line-height:1.72;color:var(--ink-2)}
+
+/* ===== Continuous threshold lab ===== */
+.threshold-controls{display:flex;flex-wrap:wrap;align-items:center;gap:12px 16px;margin-bottom:15px;padding:12px 14px;border:1px solid rgba(170,189,184,.62);background:rgba(248,250,248,.6)}
+.threshold-controls label{font-size:.82rem;color:var(--ink-2);white-space:nowrap}
+.threshold-controls input{flex:1 1 260px}
+.threshold-grid{display:grid;grid-template-columns:minmax(0,1.22fr) minmax(300px,.78fr);gap:20px;align-items:stretch}
+.threshold-plot-panel{min-width:0;overflow-x:auto;border:1px solid rgba(170,189,184,.55);background:rgba(248,250,248,.52);padding:8px 10px 4px;scrollbar-width:thin;scrollbar-color:var(--line-strong) transparent}
+.threshold-scroll-hint{display:none}
+.threshold-svg{display:block;width:100%;height:auto}
+.threshold-svg .axis{stroke:var(--line-strong);stroke-width:1}
+.threshold-svg .grid{stroke:rgba(170,189,184,.36);stroke-width:1}
+.threshold-svg .tick{font-family:var(--mono);font-size:9px;fill:var(--muted)}
+.threshold-svg .lane{font-family:var(--mono);font-size:10px;fill:var(--muted)}
+.threshold-svg .point-neg{fill:var(--blue);stroke:#fff;stroke-width:1.4}
+.threshold-svg .point-pos{fill:var(--red);stroke:#fff;stroke-width:1.4}
+.threshold-svg .split-line{stroke:var(--blue-deep);stroke-width:2;stroke-dasharray:5 4}
+.threshold-svg .best-line{stroke:var(--green-deep);stroke-width:1.2;stroke-dasharray:2 4;opacity:.75}
+.threshold-svg .best-label{font-family:var(--mono);font-size:9px;fill:var(--green-deep)}
+.threshold-side{display:flex;flex-direction:column;gap:10px;min-width:0}
+.threshold-side .readout-item{flex-basis:50%}
+.threshold-status{margin:0;padding:11px 13px;border-left:3px solid var(--green);background:rgba(223,235,228,.36);font-size:.8rem;line-height:1.68;color:var(--ink-2)}
+.threshold-status.warning{border-left-color:var(--red);background:rgba(241,225,222,.32)}
+
+
+/* ===== Bonus case: AI detective tree ===== */
+.bonus-stage{border-top:1px solid var(--line-strong);background:linear-gradient(180deg,rgba(219,232,238,.18),rgba(223,235,228,.12) 48%,transparent)}
+.bonus-stage .section-index{color:var(--green-deep)}
+.ai-lab{position:relative;margin:28px 0;padding:24px;border:1px solid #2b4851;border-left:5px solid var(--green);background:linear-gradient(145deg,#13252e,#1b343d 62%,#162b33);color:#dfeceb;box-shadow:0 28px 60px rgba(17,35,43,.20);overflow:hidden;clip-path:polygon(0 0,calc(100% - 23px) 0,100% 23px,100% 100%,0 100%)}
+.ai-lab::before{content:"";position:absolute;inset:0;pointer-events:none;opacity:.22;background-image:linear-gradient(rgba(164,201,193,.12) 1px,transparent 1px),linear-gradient(90deg,rgba(164,201,193,.12) 1px,transparent 1px);background-size:34px 34px;mask-image:linear-gradient(to bottom,rgba(0,0,0,.8),transparent 88%)}
+.ai-head{position:relative;z-index:1;display:flex;align-items:flex-start;justify-content:space-between;gap:18px;margin-bottom:18px}
+.ai-kicker{font-family:var(--mono);font-size:.62rem;letter-spacing:.15em;color:#a9c9c2;margin-bottom:5px}
+.ai-title{margin:0;font-family:var(--serif);font-size:1.45rem;line-height:1.3;color:#f1f7f5;letter-spacing:-.01em}
+.ai-sub{margin:5px 0 0;color:#a5bebc;font-size:.8rem;line-height:1.65}
+.ai-mark{font-family:var(--mono);font-size:.58rem;letter-spacing:.1em;color:#7fa39d;white-space:nowrap;padding-top:4px}
+.ai-controls{position:relative;z-index:1;display:flex;flex-wrap:wrap;align-items:flex-end;gap:14px 20px;margin-bottom:16px;padding:12px 14px;border:1px solid rgba(164,201,193,.22);background:rgba(255,255,255,.035)}
+.ai-choice-group{display:flex;flex-wrap:wrap;align-items:center;gap:7px}
+.ai-choice-label{width:100%;font-family:var(--mono);font-size:.55rem;letter-spacing:.08em;color:#91b2ae;line-height:1.4}
+.ai-choice{min-height:34px;padding:5px 9px;border:1px solid rgba(164,201,193,.28);background:rgba(255,255,255,.035);color:#c5d9d6;font-size:.73rem;border-radius:2px;transition:background .16s ease,border-color .16s ease,color .16s ease}
+.ai-choice:hover{background:rgba(255,255,255,.09);border-color:#91b2ae;color:#fff}
+.ai-choice.active{background:rgba(111,143,126,.42);border-color:#9bc4b4;color:#f4fbf7;box-shadow:inset 0 0 0 1px rgba(255,255,255,.08)}
+.ai-type-group.is-muted{opacity:.42}
+.ai-type-group.is-muted .ai-choice{cursor:not-allowed}
+.ai-actions{display:flex;gap:7px;margin-left:auto}
+.ai-actions .btn{border-color:rgba(164,201,193,.34);background:rgba(255,255,255,.04);color:#dcebe8;box-shadow:none}
+.ai-actions .btn:hover{background:rgba(255,255,255,.1);border-color:#a9c9c2;color:#fff}
+.ai-grid{position:relative;z-index:1;display:grid;grid-template-columns:minmax(0,1.18fr) minmax(285px,.82fr);gap:20px;align-items:stretch}
+.ai-scroll-hint{display:none;color:#a9c9c2;border-left-color:#8fd5bf;background:rgba(143,213,191,.10)}
+.ai-tree-shell{position:relative;min-width:0;overflow:hidden;border:1px solid rgba(164,201,193,.25);background:rgba(8,27,34,.42);min-height:330px}
+.ai-scan{position:absolute;top:0;bottom:0;left:-6%;width:2px;background:linear-gradient(to bottom,transparent,#b7e2d2 18%,#b7e2d2 82%,transparent);opacity:0;z-index:3;pointer-events:none;box-shadow:0 0 16px rgba(183,226,210,.8)}
+.ai-lab.demoing .ai-scan{opacity:.75;animation:aiScan 2.2s linear infinite}
+.ai-tree-svg{display:block;width:100%;height:auto;min-width:620px}
+.ai-edge{fill:none;stroke:rgba(137,170,166,.38);stroke-width:1.4;transition:stroke .18s ease,stroke-width .18s ease}
+.ai-edge.active{stroke:#8fd5bf;stroke-width:2.4;stroke-dasharray:8 5;filter:drop-shadow(0 0 4px rgba(143,213,191,.42));animation:aiFlow .8s linear infinite}
+.ai-edge-label{font-family:var(--mono);font-size:11px;fill:#aac4bf;text-anchor:middle;paint-order:stroke;stroke:#13252e;stroke-width:5px}
+.ai-node rect{fill:rgba(255,255,255,.035);stroke:rgba(164,201,193,.34);stroke-width:1.1;transition:fill .18s ease,stroke .18s ease}
+.ai-node text{text-anchor:middle;fill:#e1eeeb;font-family:var(--sans);font-size:13px;font-weight:600}
+.ai-node text.sub{font-family:var(--mono);font-size:11px;font-weight:400;fill:#aac4bf;letter-spacing:.01em}
+.ai-node.active rect{fill:rgba(111,143,126,.32);stroke:#a7dac7;stroke-width:2;filter:drop-shadow(0 0 7px rgba(143,213,191,.20))}
+.ai-node.active text{fill:#f3fbf7}
+.ai-node.active text.sub{fill:#b8d5ce}
+.ai-node.result.active rect{fill:rgba(143,213,191,.18);stroke:#b7e2d2;stroke-width:2.4}
+.ai-result{display:flex;flex-direction:column;align-items:flex-start;min-width:0;padding:18px 18px 16px;border:1px solid rgba(164,201,193,.24);background:rgba(255,255,255,.045);overflow:hidden}
+.ai-avatar{width:58px;height:58px;display:grid;place-items:center;margin-bottom:12px;border:1px solid rgba(255,255,255,.28);border-radius:50%;font-family:var(--mono);font-size:1rem;font-weight:700;letter-spacing:-.04em;background:#284b5a;color:#e7f6f2;box-shadow:inset 0 0 0 5px rgba(255,255,255,.03)}
+.ai-avatar.claude{background:#5b3d2c;color:#f5e5c8;border-color:#d97757}
+.ai-avatar.codex{background:#173b50;color:#ffffff;border-color:#78aecd}
+.ai-avatar.gpt{background:#225348;color:#ffffff;border-color:#85c7b2}
+.ai-avatar.deepseek{background:#172b4c;color:#8bb4ff;border-color:#5786fe}
+.ai-result-kicker{font-family:var(--mono);font-size:.55rem;letter-spacing:.13em;color:#8fb2ad}
+.ai-result h3{margin:4px 0 3px;font-family:var(--serif);font-size:1.55rem;line-height:1.2;color:#f4fbf8}
+.ai-result .ai-tagline{margin:0;color:#b6ceca;font-size:.78rem;line-height:1.65}
+.ai-result .ai-path{margin-top:12px;padding:9px 10px;border:1px solid rgba(164,201,193,.2);background:rgba(7,24,31,.36);font-family:var(--mono);font-size:.61rem;line-height:1.7;color:#98b8b3;overflow-wrap:anywhere}
+.ai-result .ai-explainer{margin:11px 0 0;color:#91ada9;font-size:.71rem;line-height:1.68}
+.ai-case-note{position:relative;z-index:1;margin:14px 0 0;color:#91ada9;font-size:.76rem;line-height:1.7}
+.ai-case-note strong{color:#d8e9e5}
+@keyframes aiScan{0%{left:-6%}100%{left:106%}}
+@keyframes aiFlow{to{stroke-dashoffset:-26}}
+@keyframes aiResultIn{from{opacity:.3;transform:translateY(4px)}to{opacity:1;transform:translateY(0)}}
+.ai-result.animate > *{animation:aiResultIn .28s ease both}
+@media (prefers-reduced-motion:reduce){.ai-lab.demoing .ai-scan,.ai-edge.active,.ai-result.animate > *{animation:none !important}}
+
+
+/* Official brand-icon layer for the bonus case */
+.ai-brand-strip{position:relative;z-index:1;display:flex;flex-wrap:wrap;align-items:center;gap:7px;margin:-4px 0 16px;padding:10px 12px;border:1px solid rgba(164,201,193,.18);background:rgba(255,255,255,.025)}
+.ai-brand-strip-label{width:100%;font-family:var(--mono);font-size:.54rem;letter-spacing:.09em;color:#8fb2ad}
+.ai-brand-chip{display:inline-flex;align-items:center;gap:6px;min-height:42px;padding:3px 9px 3px 4px;border:1px solid rgba(164,201,193,.26);background:rgba(255,255,255,.035);color:#c9ddd9;font-size:.7rem;border-radius:2px;transition:background .16s ease,border-color .16s ease}
+.ai-brand-chip:hover{background:rgba(255,255,255,.09);border-color:#9bc4b4;color:#fff}
+.ai-brand-chip.active{background:rgba(111,143,126,.34);border-color:#b7e2d2;box-shadow:inset 0 0 0 1px rgba(255,255,255,.06)}
+.ai-brand-icon{display:grid;place-items:center;width:36px;height:34px;overflow:hidden;border-radius:11px;background:rgba(0,0,0,.12)}
+.ai-brand-icon svg{display:block;width:34px;height:32px}
+.ai-brand-icon.brand-claude{color:#d97757;background:rgba(217,119,87,.12)}
+.ai-brand-icon.brand-codex{color:#d8efff;background:rgba(120,174,205,.12)}
+.ai-brand-icon.brand-gpt{color:#dff8ec;background:rgba(133,199,178,.12)}
+.ai-brand-icon.brand-deepseek{color:#8bb4ff;background:rgba(87,134,254,.14)}
+.ai-avatar{width:96px;height:96px;padding:7px;border-radius:28px;overflow:hidden;background:rgba(255,255,255,.05)}
+.ai-avatar svg{display:block;width:100%;height:100%}
+.ai-avatar svg{animation:brandFloat 3.2s ease-in-out infinite;transform-origin:center}
+@keyframes brandFloat{0%,100%{transform:translateY(0)}50%{transform:translateY(-3px)}}
+@media (prefers-reduced-motion:reduce){.ai-avatar svg{animation:none !important}}
+
+/* ===== Responsive ===== */
+@media (max-width:1050px){
+  .hero{grid-template-columns:1fr;gap:38px;padding-top:48px}
+  .hero h1{max-width:14ch}
+  .hero-visual{max-width:720px;min-height:0}
+  .section-head{grid-template-columns:96px minmax(0,1fr);gap:22px}
+  .section-deck{grid-column:2;padding-left:0;border-left:0;margin-top:-6px;max-width:720px}
+  .section-content{margin-left:118px}
+  .formula-row{grid-template-columns:145px minmax(0,1fr)}
+  .growth-stage,.depth-grid,.algorithm-note,.code-layout,.path-grid,.bias-grid,.threshold-grid,.ai-grid{grid-template-columns:1fr}
+  .bias-panels{grid-template-columns:1fr}
+  .depth-chart-panel{max-width:720px}
+  .code-notes{border-left:0;border-top:1px solid rgba(197,220,216,.15)}
+}
+@media (max-width:820px){
+  body{padding-top:104px}
+  html{scroll-padding-top:118px}
+  .stage{scroll-margin-top:118px}
+  .topline{height:54px;gap:14px}
+  .offline-badge{display:none}
+  .brand-sub{display:none}
+  .chapter-nav{display:none}
+  .pipeline{display:flex;overflow-x:auto;scrollbar-width:none;padding-bottom:1px}
+  .pipeline::-webkit-scrollbar{display:none}
+  .pipeline::before{display:none}
+  .pipeline li{flex:0 0 104px}
+  .pipeline a{flex-direction:row;justify-content:flex-start;gap:7px;font-size:.66rem;padding:0 4px}
+  .pipeline .dot{width:8px;height:8px;box-shadow:none}
+  .sim-grid{grid-template-columns:1fr}
+  .dataset-grid{grid-template-columns:1fr}
+  .path-controls{flex-direction:column;align-items:stretch}
+  .ai-head{flex-direction:column;gap:4px}
+  .ai-mark{display:none}
+  .ai-actions{margin-left:0;width:100%}
+  .ai-tree-shell{overflow-x:auto;scrollbar-width:thin;scrollbar-color:#557771 rgba(8,27,34,.3)}
+  .ai-tree-svg{width:600px;min-width:0;max-width:none}
+  .ai-scroll-hint{display:block}
+  .ai-brand-icon{width:44px;height:41px}
+  .ai-brand-icon svg{width:42px;height:39px}
+  .ai-brand-chip{min-height:48px;font-size:.75rem}
+  .ai-scroll-hint{font-size:.7rem;color:#d5eee7;background:rgba(143,213,191,.15)}
+  .path-tree-shell svg{width:760px}
+  .scroll-hint.path-scroll-hint{display:block}
+  .threshold-svg{min-width:520px}
+  .scroll-hint.threshold-scroll-hint{display:block;position:sticky;left:0}
+  .path-controls label{justify-content:space-between}
+  .path-controls select{flex:1;min-width:0}
+  .section-head{grid-template-columns:1fr;gap:10px}
+  .section-deck{grid-column:auto;margin-top:0;padding-left:0;border-left:0}
+  .section-index{display:flex;align-items:baseline;gap:10px;padding-top:0}
+  .section-index span{font-size:1rem;margin:0}
+  .section-content{margin-left:0}
+  .concept-block{margin-left:0}
+  .definition{padding:22px 20px 22px 22px}
+  .formula-row{grid-template-columns:1fr;gap:2px}
+  .formula{font-size:1.18rem}
+  .formula-grid{grid-template-columns:1fr}
+  .scroll-hint{display:block}
+  .lab{padding:18px 15px}
+  .growth-tree{width:760px}
+  .section-head h2{font-size:clamp(2rem,6.2vw,3rem)}
+}
+@media (max-width:560px){
+  body{font-size:15.5px}
+  .hero{padding:36px 18px 56px}
+  .hero h1{font-size:clamp(2.55rem,12vw,3.7rem)}
+  .hero h1 em{font-size:.92em}
+  .hero-lead{font-size:.96rem}
+  .hero-visual{padding:16px 12px 14px}
+  .hero-visual::before{left:10px}
+  .visual-head,.hero-svg,.visual-caption{margin-left:4px}
+  .stage{padding:58px 18px 68px}
+  .section-head h2{font-size:clamp(1.5rem,6.8vw,1.95rem)}
+  .eyebrow{flex-wrap:wrap;gap:5px 10px;font-size:.58rem;letter-spacing:.1em}
+  .eyebrow-en{display:block;width:100%;letter-spacing:.08em;color:var(--muted)}
+  .visual-head{flex-wrap:wrap}
+  .visual-title{font-size:.54rem;letter-spacing:.11em}
+  .visual-id{font-size:.54rem;letter-spacing:.06em}
+  .section-deck{font-size:.84rem}
+  .definition{padding:20px 15px}
+  .formula{font-size:.96rem;line-height:1.9}
+  .formula .formula-cont{display:block;margin-left:2.1em;margin-top:2px}
+  .formula .sumop .lim{font-size:.64em}
+  .pipeline{display:grid;grid-template-columns:repeat(6,minmax(0,1fr));overflow:visible;gap:0}
+  .pipeline li{min-width:0;flex:0 1 auto}
+  .pipeline a{flex-direction:column;justify-content:flex-start;gap:3px;padding:0;font-size:.63rem;line-height:1.15;text-align:center}
+  .pipeline .long-label{display:none}
+  .pipeline .short-label{display:inline;white-space:nowrap}
+  .lab{padding:16px 12px}
+  .lab-head{gap:10px}
+  .lab-title{font-size:1.26rem}
+  .lab-mark{display:none}
+  .control-row{padding:10px}
+  .readout-item{flex-basis:50%;border-left:0;border-top:1px solid rgba(170,189,184,.35)}
+  .readout-item:nth-child(1),.readout-item:nth-child(2){border-top:0}
+  .metric-strip .metric{flex-basis:50%;border-left:0;border-top:1px solid rgba(170,189,184,.35)}
+  .metric-strip .metric:nth-child(1),.metric-strip .metric:nth-child(2){border-top:0}
+  .dialog-stats{grid-template-columns:1fr}
+  .dialog-stats div{border-left:0;border-top:1px solid var(--line)}
+  .dialog-stats div:first-child{border-top:0}
+  .footer-grid{grid-template-columns:1fr;gap:26px}
+  .code-head{padding:11px 13px}
+  pre.code-block{padding:16px 13px 20px;font-size:.72rem}
+  .code-notes{padding:16px 14px}
+  .depth-chart-panel{padding:8px}
+  .apply{display:none}
+}
+@media (prefers-reduced-motion:reduce){
+  html{scroll-behavior:auto}
+  *,*::before,*::after{transition-duration:.001ms !important;animation-duration:.001ms !important;scroll-behavior:auto !important}
+}
+</style>
+</head>
+<body id="top">
+<a class="skip-link" href="#main">跳到正文</a>
+<header class="site-header">
+  <div class="topline">
+    <a class="brand" href="#top" aria-label="回到页面顶部">
+      <span class="brand-mark" aria-hidden="true">DT</span>
+      <span>
+        <span class="brand-title">决策树实验台</span>
+        <span class="brand-sub">MACHINE LEARNING / CH.04</span>
+      </span>
+    </a>
+    <nav class="chapter-nav" aria-label="章节目录">
+      <a href="#intuition">直觉</a>
+      <a href="#purity">纯度</a>
+      <a href="#growth">生长</a>
+      <a href="#compare">算法</a>
+      <a href="#pruning">剪枝</a>
+      <a href="#code">代码</a>
+    </nav>
+    <span class="offline-badge">OFFLINE · 单文件</span>
+  </div>
+  <div class="pipeline-bar">
+    <ol class="pipeline" aria-label="学习流水线">
+      <li><a href="#intuition" data-stage="0" aria-label="直觉引入"><span class="dot" aria-hidden="true"></span><span class="long-label">直觉引入</span><span class="short-label">直觉</span></a></li>
+      <li><a href="#purity" data-stage="1" aria-label="纯度度量"><span class="dot" aria-hidden="true"></span><span class="long-label">纯度度量</span><span class="short-label">纯度</span></a></li>
+      <li><a href="#growth" data-stage="2" aria-label="树生长"><span class="dot" aria-hidden="true"></span><span class="long-label">树生长</span><span class="short-label">生长</span></a></li>
+      <li><a href="#compare" data-stage="3" aria-label="算法对比"><span class="dot" aria-hidden="true"></span><span class="long-label">算法对比</span><span class="short-label">算法</span></a></li>
+      <li><a href="#pruning" data-stage="4" aria-label="剪枝与过拟合"><span class="dot" aria-hidden="true"></span><span class="long-label">剪枝与过拟合</span><span class="short-label">剪枝</span></a></li>
+      <li><a href="#code" data-stage="5" aria-label="代码实战"><span class="dot" aria-hidden="true"></span><span class="long-label">代码实战</span><span class="short-label">代码</span></a></li>
+    </ol>
+    <div class="progress-rail" aria-hidden="true"><span id="readingProgress"></span></div>
+  </div>
+</header>
+
+<main id="main">
+  <section class="hero" aria-labelledby="hero-title">
+    <div class="hero-copy">
+      <div class="eyebrow"><span>机器学习 · 第 4 章</span><span class="eyebrow-en">/ INTERACTIVE NOTE</span></div>
+      <h1 id="hero-title">先问天气，<br><em>还是先问湿度？</em></h1>
+      <p class="hero-lead">这不是一道常识题，而是一次<strong>特征选择</strong>。下面用 14 条打球记录、三种分裂准则、七个主实验和一个 AI 侦探彩蛋，把决策树从“会画”推进到“能解释为什么这样长”。</p>
+      <div class="hero-meta" aria-label="页面信息">
+        <span class="chip"><strong>14</strong> 条 PlayTennis</span>
+        <span class="chip"><strong>3</strong> 种分裂准则</span>
+        <span class="chip"><strong>7</strong> 个主实验</span>
+        <span class="chip"><strong>1</strong> 个彩蛋案例</span>
+        <span class="chip"><strong>0</strong> 个外部依赖</span>
+      </div>
+      <div class="hero-actions">
+        <a class="btn primary" href="#purity">从纯度度量开始 <span aria-hidden="true">→</span></a>
+        <a class="btn" href="#growth">直接看树怎样生长</a>
+      </div>
+      <p class="hero-note">来源基线：周志华《机器学习》2016 版第 4 章、Quinlan 的 PlayTennis 经典数据集、scikit-learn 官方文档。公式由内置离线 TeX-Lite 解析，不加载 CDN。</p>
+    </div>
+    <div class="hero-visual" aria-label="PlayTennis 决策树示意图">
+      <div class="visual-head">
+        <span class="visual-title">RULE TRACE / 14 SAMPLES</span>
+        <span class="visual-id">FIG. 04—A</span>
+      </div>
+      <svg class="hero-svg" viewBox="0 0 480 430" role="img" aria-labelledby="hero-svg-title">
+        <title id="hero-svg-title">一棵根据天气、湿度和风判断是否打球的决策树示意图</title>
+        <line class="gridline" x1="24" y1="104" x2="456" y2="104"/>
+        <line class="gridline" x1="24" y1="204" x2="456" y2="204"/>
+        <line class="gridline" x1="24" y1="304" x2="456" y2="304"/>
+        <line class="gridline" x1="24" y1="404" x2="456" y2="404"/>
+        <path class="branch" d="M240 104 C240 126 92 128 92 154"/>
+        <path class="branch" d="M240 104 C240 126 240 128 240 154"/>
+        <path class="branch" d="M240 104 C240 126 388 128 388 154"/>
+        <text class="edge-label" x="162" y="128">Sunny</text>
+        <text class="edge-label" x="240" y="128">Overcast</text>
+        <text class="edge-label" x="318" y="128">Rain</text>
+        <path class="branch" d="M92 200 C92 218 92 220 92 246"/>
+        <text class="edge-label" x="116" y="226">? </text>
+        <path class="branch" d="M388 200 C388 218 388 220 388 246"/>
+        <text class="edge-label" x="412" y="226">? </text>
+        <path class="branch" d="M92 292 C92 310 48 312 48 338"/>
+        <path class="branch" d="M92 292 C92 310 136 312 136 338"/>
+        <text class="edge-label" x="58" y="318">High</text>
+        <text class="edge-label" x="126" y="318">Normal</text>
+        <path class="branch" d="M388 292 C388 310 344 312 344 338"/>
+        <path class="branch" d="M388 292 C388 310 432 312 432 338"/>
+        <text class="edge-label" x="352" y="318">Weak</text>
+        <text class="edge-label" x="422" y="318">Strong</text>
+        <g class="node root">
+          <rect x="180" y="56" width="120" height="48"/>
+          <text x="240" y="76">Outlook</text>
+          <text class="small" x="240" y="92">D · 14 / H 0.940</text>
+        </g>
+        <g class="node">
+          <rect x="42" y="154" width="100" height="46"/>
+          <text x="92" y="174">Sunny</text>
+          <text class="small" x="92" y="190">2 Yes / 3 No</text>
+        </g>
+        <g class="node yes">
+          <rect x="190" y="154" width="100" height="46"/>
+          <text x="240" y="174">Yes</text>
+          <text class="small" x="240" y="190">leaf · 4/4</text>
+        </g>
+        <g class="node">
+          <rect x="338" y="154" width="100" height="46"/>
+          <text x="388" y="174">Rain</text>
+          <text class="small" x="388" y="190">3 Yes / 2 No</text>
+        </g>
+        <g class="node">
+          <rect x="42" y="246" width="100" height="46"/>
+          <text x="92" y="266">Humidity</text>
+          <text class="small" x="92" y="282">H 0.971</text>
+        </g>
+        <g class="node">
+          <rect x="338" y="246" width="100" height="46"/>
+          <text x="388" y="266">Wind</text>
+          <text class="small" x="388" y="282">H 0.971</text>
+        </g>
+        <g class="node no"><rect x="18" y="338" width="60" height="38"/><text x="48" y="362">No</text></g>
+        <g class="node yes"><rect x="106" y="338" width="60" height="38"/><text x="136" y="362">Yes</text></g>
+        <g class="node yes"><rect x="314" y="338" width="60" height="38"/><text x="344" y="362">Yes</text></g>
+        <g class="node no"><rect x="402" y="338" width="60" height="38"/><text x="432" y="362">No</text></g>
+      </svg>
+      <p class="visual-caption">每一次分裂，都应能回答一个问题：<strong>为什么是它，而不是别的特征？</strong></p>
+    </div>
+  </section>
+
+  <section class="stage" id="intuition" data-stage="0" aria-labelledby="intuition-title">
+    <div class="section-head">
+      <div class="section-index"><span>01</span>INTUITION</div>
+      <div class="section-heading">
+        <div class="module-kicker">从流程图到判别模型</div>
+        <h2 id="intuition-title">决策树把判断拆成一条<br>可审计的路径</h2>
+      </div>
+      <p class="section-deck">从根到叶的每一次选择，都是对样本空间的一次切分。理解树，先理解“递归划分”这四个字。</p>
+    </div>
+
+    <div class="section-content">
+      <div class="concept-block">
+        <span class="module-kicker">概念块 / CONCEPT</span>
+        <h3>根节点、内部节点、叶节点</h3>
+        <p>决策树是一种基于特征递归划分样本的树形判别模型。根节点包含训练全集 <span class="tex-inline" data-tex="D"></span>；内部节点选择一个特征与判定条件，把当前样本集送到不同的子节点；叶节点输出类别。每条从根到叶的有向路径，都是一条可以写成 <span class="tex-inline" data-tex="\text{IF } \cdots \text{ THEN } \cdots"></span> 的规则。</p>
+        <p>例如 PlayTennis 中的一条路径是：<span class="em">Outlook = Sunny → Humidity = High → No</span>。它等价于规则：如果天气晴朗且湿度高，则不组织打球。决策树因此常被称为<strong>白盒模型</strong>：分类依据可以被逐条检查，而不是只能观察输入输出。</p>
+        <p>但“白盒”不等于“永远好解释”。树越深、叶节点越多，规则数量和交互关系越复杂，人工审计成本也会上升。工业上限制树深、设置叶节点最小样本数，既是在控制过拟合，也是在维持可解释性。</p>
+      </div>
+
+      <div class="definition" aria-labelledby="formal-definition">
+        <h3 id="formal-definition">形式化描述：一次分裂做了什么</h3>
+        <p>设当前节点上的样本集为 <span class="tex-inline" data-tex="D"></span>。若选择离散特征 <span class="tex-inline" data-tex="a"></span>，它有 <span class="tex-inline" data-tex="V"></span> 个可能取值 <span class="tex-inline" data-tex="\{a^1,\ldots,a^V\}"></span>，则一次多叉划分把 <span class="tex-inline" data-tex="D"></span> 分成：</p>
+        <div class="formula-list">
+          <div class="formula-row">
+            <div class="formula-label">样本划分</div>
+            <div class="formula"><span class="tex" data-tex="D = D^1 \cup D^2 \cup \cdots \cup D^V"></span></div>
+          </div>
+          <div class="formula-row">
+            <div class="formula-label">子集定义</div>
+            <div class="formula"><span class="tex" data-tex="D^v = \{(\mathbf{x},y)\in D \mid x_a = a^v\}"></span></div>
+          </div>
+        </div>
+        <p class="fine">根节点是“全体样本”；内部节点是“条件测试”；叶节点是“类别输出”；有向分支记录测试结果。CART 的严格二叉划分可以看成这里 <span class="tex-inline" data-tex="V=2"></span> 的特例：每个内部节点只有两个子节点。</p>
+      </div>
+
+      <div class="lab path-lab" id="pathLab">
+        <div class="lab-head">
+          <div>
+            <div class="lab-kicker">EXPERIMENT 01 / 规则路径追踪</div>
+            <h3 class="lab-title">选一个天气场景，看它如何走到叶节点</h3>
+            <p class="lab-sub">修改 Outlook、Humidity 或 Wind，树上的高亮路径会同步更新。注意：路径一旦到达纯叶节点就结束，后续特征不再参与判断。</p>
+          </div>
+          <span class="lab-mark">LIVE / ID3 TREE</span>
+        </div>
+        <div class="control-row path-controls">
+          <label for="pathOutlook">Outlook
+            <select id="pathOutlook">
+              <option value="Sunny">Sunny</option>
+              <option value="Overcast">Overcast</option>
+              <option value="Rain">Rain</option>
+            </select>
+          </label>
+          <label for="pathHumidity">Humidity
+            <select id="pathHumidity">
+              <option value="High">High</option>
+              <option value="Normal">Normal</option>
+            </select>
+          </label>
+          <label for="pathWind">Wind
+            <select id="pathWind">
+              <option value="Weak">Weak</option>
+              <option value="Strong">Strong</option>
+            </select>
+          </label>
+          <div class="path-quick" aria-label="快速场景">
+            <button class="btn compact" type="button" data-path-preset="sunny-high">晴 + 高湿</button>
+            <button class="btn compact" type="button" data-path-preset="sunny-normal">晴 + 正常湿度</button>
+            <button class="btn compact" type="button" data-path-preset="overcast">阴天</button>
+            <button class="btn compact" type="button" data-path-preset="rain-strong">雨 + 大风</button>
+          </div>
+        </div>
+        <div class="scroll-hint path-scroll-hint">← 横向滑动查看完整路径树 →</div>
+        <div class="path-grid">
+          <div class="path-tree-shell">
+            <svg class="tree-svg" id="pathTree" viewBox="0 0 760 420" role="img" aria-label="PlayTennis ID3 决策树的预测路径高亮"></svg>
+          </div>
+          <div class="path-side">
+            <div class="path-outcome" id="pathOutcome" aria-live="polite">
+              <span>PREDICTION / 叶节点输出</span>
+              <strong id="pathPred">No</strong>
+              <code id="pathRule">IF Outlook = Sunny AND Humidity = High THEN No</code>
+            </div>
+            <div class="path-rule" id="pathPath" aria-live="polite"></div>
+            <p class="small-note" style="margin:0"><strong>为什么没有温度？</strong>在这份 14 条记录上，Temperature 的根节点信息增益最低（0.0292）；在 Sunny 与 Rain 的后续子集里也没有胜过湿度或风力。因此它没有进入这棵 ID3 树。特征“没出现”不等于它永远无用，只说明它没有赢得当前节点的局部比较。</p>
+          </div>
+        </div>
+      </div>
+
+      <div class="callout">
+        <span class="label">工程视角</span>
+        决策树的核心优势不是“长得像流程图”，而是<strong>局部判定可以被追溯到具体特征与阈值</strong>。金融风控、医疗辅助诊断、合规审批等场景需要输出可审计的拒绝理由或风险依据；这类需求正是白盒模型的价值所在。规则可审计，不等于模型自动正确；数据质量、阈值稳定性和人工复核仍然不可省略。
+      </div>
+
+      <p class="takeaway"><strong>先记住一句话：</strong>决策树用递归的局部划分，把复杂分类任务拆成一系列条件判断。下一步要回答的是：怎样判断一次划分“划得好”？</p>
+    </div>
+  </section>
+
+  <section class="stage" id="purity" data-stage="1" aria-labelledby="purity-title">
+    <div class="section-head">
+      <div class="section-index"><span>02</span>PURITY</div>
+      <div class="section-heading">
+        <div class="module-kicker">不纯度 / IMPURITY</div>
+        <h2 id="purity-title">让子集变整齐：<br>熵、基尼与分裂收益</h2>
+      </div>
+      <p class="section-deck">不纯度描述“当前节点有多乱”；信息增益、增益率与 Gini 减少量描述“这次划分值不值”。两件事不要混为一谈。</p>
+    </div>
+
+    <div class="section-content">
+      <div class="definition" aria-labelledby="impurity-definition">
+        <h3 id="impurity-definition">信息熵与基尼指数</h3>
+        <p>设节点 <span class="tex-inline" data-tex="D"></span> 中有 <span class="tex-inline" data-tex="k"></span> 个类别，第 <span class="tex-inline" data-tex="i"></span> 类样本占比为 <span class="tex-inline" data-tex="p_i=|D_i|/|D|"></span>。约定 <span class="tex-inline" data-tex="0\log_2 0:=0"></span>。</p>
+        <div class="formula-list">
+          <div class="formula-row">
+            <div class="formula-label">信息熵<br><span class="small-note">单位：bit</span></div>
+            <div class="formula"><span class="tex" data-tex="H(D) = -\sum_{i=1}^{k} p_i \log_2 p_i"></span></div>
+          </div>
+          <div class="formula-row">
+            <div class="formula-label">基尼指数<br><span class="small-note">不纯度</span></div>
+            <div class="formula"><span class="tex" data-tex="\mathrm{Gini}(D) = 1 - \sum_{i=1}^{k} p_i^2"></span></div>
+          </div>
+        </div>
+        <p class="fine"><strong>熵：</strong>熵越大，类别分布越混乱；样本全同类时 <span class="tex-inline" data-tex="H(D)=0"></span>。二分类时最大值为 <span class="tex-inline" data-tex="1"></span> bit，且<strong>只当正负样本各占 50% 时取到</strong>；若是 <span class="tex-inline" data-tex="k"></span> 类且均匀分布，最大值为 <span class="tex-inline" data-tex="\log_2 k"></span>，不要一概写成 1。</p>
+        <p class="fine"><strong>Gini：</strong>基尼指数同样在不纯度越低时越小，纯节点为 0。二分类时最大值为 <span class="tex-inline" data-tex="0.5"></span>，在正负样本各占 50% 时取到；<span class="tex-inline" data-tex="k"></span> 类均匀分布时最大值为 <span class="tex-inline" data-tex="1-1/k"></span>。它只含平方与求和，通常比含对数的熵更容易计算。CART 分类树使用 Gini。</p>
+        <p class="fine">注意：熵与 Gini 是两种不同的不纯度尺度，数值不能直接横向比较。二分类 50/50 时，<span class="tex-inline" data-tex="H=1"></span>，而 <span class="tex-inline" data-tex="\mathrm{Gini}=0.5"></span>，二者都达到各自的最大值。</p>
+      </div>
+
+      <div class="lab" id="purityLab">
+        <div class="lab-head">
+          <div>
+            <div class="lab-kicker">EXPERIMENT 02 / 纯度度量模拟器</div>
+            <h3 class="lab-title">拖动正类占比，观察两条不纯度曲线</h3>
+            <p class="lab-sub">左侧是 60 个示意样本；右侧曲线横轴为正类占比 p，纵轴为不纯度。拖动时，坐标点与数值会同步更新。</p>
+          </div>
+          <span class="lab-mark">LIVE / BINARY</span>
+        </div>
+        <div class="control-row">
+          <label for="purityRange">正类占比 p</label>
+          <div class="grow">
+            <input id="purityRange" type="range" min="0" max="100" step="1" value="50" aria-describedby="purityHint">
+            <div class="range-ends"><span>0% / 全为负类</span><span>100% / 全为正类</span></div>
+          </div>
+          <strong id="purityPercent" style="font-family:var(--mono);color:var(--blue-deep)">50%</strong>
+        </div>
+        <div class="sim-grid">
+          <div class="sample-panel">
+            <div class="panel-head"><span>NODE SAMPLE / n = 60</span><span id="purityCounts">30 red · 30 blue</span></div>
+            <svg id="purityDots" class="sample-svg" viewBox="0 0 360 230" role="img" aria-label="节点中正类与负类样本分布示意图"></svg>
+            <div class="legend" aria-hidden="true"><span><i class="yes"></i>正类 Yes</span><span><i class="no"></i>负类 No</span></div>
+          </div>
+          <div class="curve-panel">
+            <div class="panel-head"><span>IMPURITY CURVE / p ∈ [0,1]</span><span>H / Gini</span></div>
+            <svg id="purityCurve" class="curve-svg" viewBox="0 0 520 310" role="img" aria-label="信息熵和基尼指数随正类占比变化的曲线"></svg>
+          </div>
+        </div>
+        <div class="readout" id="purityReadout" aria-live="polite">
+          <div class="readout-item"><span>正类占比 p</span><strong id="purityP">0.500</strong></div>
+          <div class="readout-item"><span>信息熵 H(D)</span><strong id="purityH">1.0000</strong></div>
+          <div class="readout-item green"><span>基尼指数 Gini(D)</span><strong id="purityG">0.5000</strong></div>
+          <div class="readout-item"><span>最大类占比</span><strong id="purityMajority">0.500</strong></div>
+        </div>
+        <p class="lab-note" id="purityHint"><strong>读图提示：</strong>曲线在 p=0 或 p=1 时都落到 0；在 p=0.5 时，熵达到二分类最大值 1，Gini 达到二分类最大值 0.5。熵曲线更“陡”，说明它对接近纯节点的分布变化更敏感。</p>
+      </div>
+
+      <div class="definition" aria-labelledby="split-criteria">
+        <h3 id="split-criteria">从“不纯度”到“分裂准则”</h3>
+        <p>一次划分会把父节点的不纯度拆成若干子节点的加权不纯度。二者之差，就是这次划分带来的不纯度下降。三种主流准则的差别，在于如何定义这个下降量、以及树是否允许多叉。</p>
+        <div class="formula-list">
+          <div class="formula-row">
+            <div class="formula-label">信息增益<br><span class="small-note">ID3</span></div>
+            <div class="formula"><span class="tex" data-tex="\mathrm{Gain}(D,a) = H(D)"></span><span class="formula-cont"><span class="tex" data-tex="- \sum_{v=1}^{V}\frac{|D^v|}{|D|}H(D^v)"></span></span></div>
+          </div>
+          <div class="formula-row">
+            <div class="formula-label">固有值<br><span class="small-note">IV / intrinsic value</span></div>
+            <div class="formula"><span class="tex" data-tex="IV(a) = -\sum_{v=1}^{V}"></span><span class="formula-cont"><span class="tex" data-tex="\frac{|D^v|}{|D|}\log_2\frac{|D^v|}{|D|}"></span></span></div>
+          </div>
+          <div class="formula-row">
+            <div class="formula-label">信息增益率<br><span class="small-note">C4.5</span></div>
+            <div class="formula"><span class="tex" data-tex="\mathrm{Gain\_ratio}(D,a) = \frac{\mathrm{Gain}(D,a)}{IV(a)}"></span></div>
+          </div>
+          <div class="formula-row">
+            <div class="formula-label">二分类 Gini 减少量<br><span class="small-note">CART</span></div>
+            <div class="formula"><span class="tex" data-tex="\Delta\mathrm{Gini} = \mathrm{Gini}(D) - \frac{|D_L|}{|D|}\mathrm{Gini}(D_L)"></span><span class="formula-cont"><span class="tex" data-tex="- \frac{|D_R|}{|D|}\mathrm{Gini}(D_R)"></span></span></div>
+          </div>
+        </div>
+        <p class="fine">信息增益越大，说明划分后子集越纯；C4.5 用固有值 <span class="tex-inline" data-tex="IV(a)"></span> 惩罚“取值很多、把样本切得很碎”的特征；CART 分类树则在所有候选二叉切分中最大化 <span class="tex-inline" data-tex="\Delta\mathrm{Gini}"></span>。回归树的 CART 使用平方误差的减少量，而不是 Gini。</p>
+      </div>
+
+      <div class="callout warning">
+        <span class="label">ID3 的偏置：为什么它会偏爱“取值多”的特征</span>
+        <p style="margin:0 0 8px">信息增益天然偏向取值数多的离散特征。设想给每个样本编一个唯一编号，按编号分裂会把每个子集都切成只有一个样本的纯节点，信息增益达到 <span class="tex-inline" data-tex="H(D)"></span>；但这组规则对新样本几乎没有泛化能力。</p>
+        <p style="margin:0">C4.5 用增益率缓解这个问题；不过增益率也可能过度惩罚取值少的特征。常见实现会先用信息增益筛掉低于平均水平的候选，再比较增益率。工程上不要只看公式名称，还要看具体实现。</p>
+      </div>
+
+      <div class="lab bias-lab" id="biasLab">
+        <div class="lab-head">
+          <div>
+            <div class="lab-kicker">EXPERIMENT 03 / 多取值偏置陷阱</div>
+            <h3 class="lab-title">加入一个“样本编号”特征，会发生什么？</h3>
+            <p class="lab-sub">RowID 对每个样本都唯一。它能制造完美的纯子集，却没有任何泛化价值。切换开关，观察 Gain 与 Gain ratio 的排序如何变化。</p>
+          </div>
+          <span class="lab-mark">ID3 vs C4.5 / BIAS</span>
+        </div>
+        <label class="bias-toggle" for="biasToggle">
+          <input type="checkbox" id="biasToggle">
+          加入 RowID（14 个唯一编号）
+        </label>
+        <div class="bias-grid">
+          <div class="bias-panels" id="biasPanels"></div>
+          <div class="bias-side" aria-live="polite">
+            <div class="readout">
+              <div class="readout-item"><span>ID3 选择</span><strong id="biasId3">Outlook</strong></div>
+              <div class="readout-item green"><span>C4.5 选择</span><strong id="biasC45">Outlook</strong></div>
+              <div class="readout-item red"><span>编号优势 Gain / Ratio</span><strong id="biasGap">未启用</strong></div>
+            </div>
+            <p class="bias-note" id="biasNote">关闭 RowID 时，ID3 与 C4.5 都选择 Outlook。打开后观察：增益率并不是“万能解药”。</p>
+          </div>
+        </div>
+      </div>
+
+      <p class="takeaway"><strong>三个名字，三种目标：</strong>ID3 最大化信息增益；C4.5 用增益率抑制多取值偏置；CART 最大化 Gini 减少量。它们都在做“局部最优划分”，但评分函数与树形约束不同。</p>
+    </div>
+  </section>
+
+  <section class="stage" id="growth" data-stage="2" aria-labelledby="growth-title">
+    <div class="section-head">
+      <div class="section-index"><span>03</span>GROWTH</div>
+      <div class="section-heading">
+        <div class="module-kicker">递归划分 / RECURSIVE SPLITTING</div>
+        <h2 id="growth-title">14 条记录<br>如何长成一棵 ID3 树</h2>
+      </div>
+      <p class="section-deck">每次只做局部最优选择：在当前节点上，挑信息增益最大的特征；然后对每个子集重复这件事。</p>
+    </div>
+
+    <div class="section-content">
+      <div class="concept-block">
+        <span class="module-kicker">数据集 / QUINLAN PLAY TENNIS</span>
+        <h3>先算根节点：哪个特征的增益最大？</h3>
+        <p>PlayTennis 共有 14 个样本，其中 9 个 Yes、5 个 No。根节点熵为 <span class="tex-inline" data-tex="H(D)=0.9403"></span> bit。分别按四个特征划分，得到右侧的信息增益。天气（Outlook）以 0.2467 居首，因此 ID3 先按天气分三支。</p>
+        <p class="small-note">表中数值来自原始 14 条记录；信息增益按“父节点熵 − 子节点加权熵”计算。湿度不是“不重要”，它只是当前根节点上的增益低于天气，后面仍会在 Sunny 子集里被选中。</p>
+      </div>
+
+      <div class="dataset-grid">
+        <div class="table-wrap">
+          <table class="data-table">
+            <caption>PLAYTENNIS / 14 ROWS · QUINLAN 经典教学数据</caption>
+            <thead><tr><th>#</th><th>Outlook 天气</th><th>Temp. 温度</th><th>Humidity 湿度</th><th>Wind 风</th><th>Play</th></tr></thead>
+            <tbody>
+              <tr><td class="num">01</td><td>Sunny</td><td>Hot</td><td>High</td><td>Weak</td><td class="no">No</td></tr>
+              <tr><td class="num">02</td><td>Sunny</td><td>Hot</td><td>High</td><td>Strong</td><td class="no">No</td></tr>
+              <tr><td class="num">03</td><td>Overcast</td><td>Hot</td><td>High</td><td>Weak</td><td class="yes">Yes</td></tr>
+              <tr><td class="num">04</td><td>Rain</td><td>Mild</td><td>High</td><td>Weak</td><td class="yes">Yes</td></tr>
+              <tr><td class="num">05</td><td>Rain</td><td>Cool</td><td>Normal</td><td>Weak</td><td class="yes">Yes</td></tr>
+              <tr><td class="num">06</td><td>Rain</td><td>Cool</td><td>Normal</td><td>Strong</td><td class="no">No</td></tr>
+              <tr><td class="num">07</td><td>Overcast</td><td>Cool</td><td>Normal</td><td>Strong</td><td class="yes">Yes</td></tr>
+              <tr><td class="num">08</td><td>Sunny</td><td>Mild</td><td>High</td><td>Weak</td><td class="no">No</td></tr>
+              <tr><td class="num">09</td><td>Sunny</td><td>Cool</td><td>Normal</td><td>Weak</td><td class="yes">Yes</td></tr>
+              <tr><td class="num">10</td><td>Rain</td><td>Mild</td><td>Normal</td><td>Weak</td><td class="yes">Yes</td></tr>
+              <tr><td class="num">11</td><td>Sunny</td><td>Mild</td><td>Normal</td><td>Strong</td><td class="yes">Yes</td></tr>
+              <tr><td class="num">12</td><td>Overcast</td><td>Mild</td><td>High</td><td>Strong</td><td class="yes">Yes</td></tr>
+              <tr><td class="num">13</td><td>Overcast</td><td>Hot</td><td>Normal</td><td>Weak</td><td class="yes">Yes</td></tr>
+              <tr><td class="num">14</td><td>Rain</td><td>Mild</td><td>High</td><td>Strong</td><td class="no">No</td></tr>
+            </tbody>
+          </table>
+        </div>
+        <div class="gain-panel">
+          <h3>根节点信息增益</h3>
+          <div class="H-line">H(D) = 0.9403 bit · ID3 selects Max Gain</div>
+          <div class="gain-row"><span class="name">Outlook</span><span class="bar" aria-hidden="true"><span style="width:100%"></span></span><span class="val">0.2467</span></div>
+          <div class="gain-row"><span class="name">Humidity</span><span class="bar" aria-hidden="true"><span style="width:61.5%"></span></span><span class="val">0.1518</span></div>
+          <div class="gain-row"><span class="name">Wind</span><span class="bar" aria-hidden="true"><span style="width:19.5%"></span></span><span class="val">0.0481</span></div>
+          <div class="gain-row"><span class="name">Temp.</span><span class="bar" aria-hidden="true"><span style="width:11.8%"></span></span><span class="val">0.0292</span></div>
+          <p class="small-note" style="margin:12px 0 0">增益对比是“同一父节点、同一批样本”上的局部比较。换到 Sunny 子集后，排序会变化：湿度上升为首选。</p>
+        </div>
+      </div>
+
+      <div class="lab growth-lab" id="growthLab">
+        <div class="lab-head">
+          <div>
+            <div class="lab-kicker">EXPERIMENT 04 / ID3 分步生长</div>
+            <h3 class="lab-title">一步一步展开树，并点击节点查看统计</h3>
+            <p class="lab-sub">黄色虚线节点表示尚未分裂的子集。点击任意已显示节点，可查看样本数、类别分布与熵。</p>
+          </div>
+          <span class="lab-mark">ID3 / MULTIWAY</span>
+        </div>
+        <div class="control-row" aria-live="polite">
+          <span class="step-counter" id="growthStepLabel">STEP 0 / 4 · 根节点</span>
+          <div class="step-actions" style="margin-left:auto">
+            <button class="btn compact" id="growthReset" type="button">重来</button>
+            <button class="btn primary compact" id="growthNext" type="button">下一步 →</button>
+          </div>
+        </div>
+        <div class="scroll-hint">← 横向滚动查看完整树 →</div>
+        <div class="growth-stage">
+          <div class="tree-viewport" id="growthViewport">
+            <svg class="tree-svg growth-tree" id="growthTree" viewBox="0 0 760 420" role="img" aria-label="PlayTennis 的 ID3 分步决策树"></svg>
+          </div>
+          <div class="growth-side">
+            <div class="step-copy" id="growthStepCopy" aria-live="polite"></div>
+            <p class="small-note" style="margin:0"><strong>操作：</strong>点击节点打开统计面板；面板中的熵只描述该节点当前的类别纯度，不包含“如果继续分裂”的收益。</p>
+          </div>
+        </div>
+      </div>
+
+      <div class="callout" style="margin-top:26px">
+        <span class="label">完整 ID3 树 / 5 条叶节点规则</span>
+        <p style="margin:0 0 6px"><strong>规则 1：</strong>IF Outlook = Overcast THEN Yes</p>
+        <p style="margin:0 0 6px"><strong>规则 2：</strong>IF Outlook = Sunny AND Humidity = High THEN No</p>
+        <p style="margin:0 0 6px"><strong>规则 3：</strong>IF Outlook = Sunny AND Humidity = Normal THEN Yes</p>
+        <p style="margin:0 0 6px"><strong>规则 4：</strong>IF Outlook = Rain AND Wind = Weak THEN Yes</p>
+        <p style="margin:0"><strong>规则 5：</strong>IF Outlook = Rain AND Wind = Strong THEN No</p>
+      </div>
+
+      <p class="takeaway"><strong>这棵树什么时候停？</strong>当节点已经纯，或没有可用特征继续划分时停止。PlayTennis 的 ID3 结果有 3 个内部节点、5 个叶节点；它把训练集完全分开，但这不等于在未见样本上一定最优。</p>
+    </div>
+  </section>
+
+  <section class="stage" id="compare" data-stage="3" aria-labelledby="compare-title">
+    <div class="section-head">
+      <div class="section-index"><span>04</span>ALGORITHMS</div>
+      <div class="section-heading">
+        <div class="module-kicker">同一数据 / 三种分裂哲学</div>
+        <h2 id="compare-title">ID3、C4.5、CART：<br>差别不只在公式</h2>
+      </div>
+      <p class="section-deck">评分准则决定“先问谁”，树形约束决定“能问成什么样”。同一份 PlayTennis，三种算法会长出什么结构？</p>
+    </div>
+
+    <div class="section-content">
+      <div class="table-wrap" style="margin-bottom:24px">
+        <table class="data-table" style="min-width:780px">
+          <caption>算法对照 / ALGORITHM COMPARISON</caption>
+          <thead><tr><th>算法</th><th>分裂准则</th><th>树结构</th><th>数据支持</th><th>关键特性与缺陷</th></tr></thead>
+          <tbody>
+            <tr><td><strong>ID3</strong></td><td>信息增益</td><td>多叉树</td><td>仅离散特征</td><td>原生无内置剪枝；偏好取值多的特征，易过拟合</td></tr>
+            <tr><td><strong>C4.5</strong></td><td>信息增益率</td><td>多叉树</td><td>离散 / 连续，支持缺失值</td><td>用固有值抑制多取值偏置；多叉树训练效率较低，工业实现少</td></tr>
+            <tr><td><strong>CART</strong></td><td>Gini（分类）/ 平方误差（回归）</td><td>严格二叉树</td><td>分类、回归双任务</td><td>特征可在不同节点重复分裂；单棵树方差大、稳定性弱</td></tr>
+          </tbody>
+        </table>
+      </div>
+
+      <div class="concept-block">
+        <span class="module-kicker">关键区别 / NOT JUST A NAME</span>
+        <h3>多叉 vs 二叉：一条分裂就能改变解释方式</h3>
+        <p>ID3 与 C4.5 对离散特征采用多路划分：Outlook 有三个取值，就一次产生三个分支。CART 只允许二叉划分，因此会问“Outlook 是否为 Overcast？”这类是/否问题；一个特征可以在不同深度被多次使用。</p>
+        <p>CART 是“二叉树”，不是“只能做二分类”。分类任务输出多个类别时，叶节点仍然可以给出多类别之一；它的“二”指的是每个内部节点只有两个孩子。scikit-learn 的决策树实现属于 CART 系，默认使用 Gini，也支持通过 <code>criterion="entropy"</code> 改用熵，但树仍然是二叉的。</p>
+      </div>
+
+      <div class="lab" id="compareLab">
+        <div class="lab-head">
+          <div>
+            <div class="lab-kicker">EXPERIMENT 05 / 三算法一键对比</div>
+            <h3 class="lab-title">同一画布，切换 ID3 / C4.5 / CART</h3>
+            <p class="lab-sub">下拉选择算法，树的节点、分支和分裂指标会同步重绘。点击节点可查看该节点的样本数、熵与 Gini。</p>
+          </div>
+          <span class="lab-mark">LIVE / PLAY TENNIS</span>
+        </div>
+        <div class="compare-controls">
+          <label for="algorithmSelect" style="font-size:.84rem;color:var(--ink-2)">分裂算法</label>
+          <span class="select-wrap">
+            <select id="algorithmSelect" aria-label="选择决策树算法">
+              <option value="id3">ID3 · 信息增益</option>
+              <option value="c45">C4.5 · 信息增益率</option>
+              <option value="cart">CART · Gini 二叉</option>
+            </select>
+          </span>
+          <span class="control-note" id="algorithmControlNote">切换算法，观察根节点条件与分支数量如何变化。</span>
+        </div>
+        <div class="metric-strip" aria-live="polite">
+          <div class="metric"><span>当前准则</span><strong id="algoCriterion">信息增益</strong></div>
+          <div class="metric"><span>根节点选择</span><strong id="algoRoot">Outlook</strong></div>
+          <div class="metric"><span>树结构</span><strong id="algoStructure">多叉树</strong></div>
+          <div class="metric"><span>节点 / 叶节点</span><strong class="mono" id="algoCounts">7 / 5</strong></div>
+          <div class="metric"><span>根分裂得分</span><strong class="mono" id="algoScore">0.2467</strong></div>
+        </div>
+        <div class="scroll-hint">← 横向滚动查看完整树 →</div>
+        <div class="algo-tree-shell" id="algoTreeShell">
+          <svg class="tree-svg" id="algorithmTree" viewBox="0 0 760 420" role="img" aria-label="所选算法在 PlayTennis 数据上生成的决策树"></svg>
+        </div>
+        <div class="algorithm-note">
+          <div class="note-main" id="algorithmNarrative"></div>
+          <div class="table-wrap" style="border-color:rgba(170,189,184,.55)">
+            <table class="data-table score-table" id="rootScoreTable">
+              <caption>ROOT SPLIT SCORES</caption>
+              <thead><tr><th>特征</th><th>Gain</th><th>Ratio</th></tr></thead>
+              <tbody></tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+
+      <div class="lab threshold-lab" id="thresholdLab">
+        <div class="lab-head">
+          <div>
+            <div class="lab-kicker">EXPERIMENT 06 / 连续特征阈值实验</div>
+            <h3 class="lab-title">拖动阈值，观察连续特征如何被切成两段</h3>
+            <p class="lab-sub">24 个教学用一维样本，带少量标签噪声。C4.5 与 CART 处理连续特征时，会排序后枚举候选切点；“最优阈值”由最大不纯度下降决定。</p>
+          </div>
+          <span class="lab-mark">CONTINUOUS / SPLIT</span>
+        </div>
+        <div class="threshold-controls">
+          <label for="thresholdRange">阈值 t</label>
+          <input id="thresholdRange" type="range" min="-1.05" max="1.05" step="0.01" value="0">
+          <strong id="thresholdValue" style="font-family:var(--mono);color:var(--blue-deep);min-width:58px">0.00</strong>
+          <button class="btn compact" id="thresholdBest" type="button">跳到最优阈值</button>
+        </div>
+        <div class="threshold-grid">
+          <div class="threshold-plot-panel">
+            <div class="panel-head"><span>FEATURE x / CLASS DISTRIBUTION</span><span>虚线为当前切分</span></div>
+            <div class="scroll-hint threshold-scroll-hint">← 横向滑动查看完整坐标轴 →</div>
+            <svg id="thresholdPlot" class="threshold-svg" viewBox="0 0 640 300" role="img" aria-label="连续特征一维分布与当前阈值"></svg>
+            <div class="chart-legend" aria-hidden="true"><span><i style="border-top-color:var(--blue)"></i>0 / No</span><span><i style="border-top-color:var(--red)"></i>1 / Yes</span><span><i style="border-top:1px dashed var(--green-deep)"></i>最优阈值</span></div>
+          </div>
+          <div class="threshold-side" aria-live="polite">
+            <div class="readout">
+              <div class="readout-item"><span>父节点 Gini</span><strong id="thresholdGini">—</strong></div>
+              <div class="readout-item green"><span>ΔGini</span><strong id="thresholdGain">—</strong></div>
+              <div class="readout-item"><span>左 / 右样本</span><strong id="thresholdCounts">—</strong></div>
+              <div class="readout-item red"><span>叶节点错分</span><strong id="thresholdError">—</strong></div>
+            </div>
+            <p class="threshold-status" id="thresholdStatus">拖动阈值，观察加权 Gini 与错分数的变化。</p>
+            <p class="small-note" style="margin:0"><strong>为什么不用任意阈值？</strong>对一维连续特征，只需检查排序后相邻取值的中点；在这些候选点之间移动阈值不会改变左右样本集合。CART 用 Gini 减少量选切点，C4.5 则用信息增益率选切点。</p>
+          </div>
+        </div>
+      </div>
+
+      <div class="callout warning">
+        <span class="label">一个需要诚实说明的现象</span>
+        在这份低基数离散数据上，ID3 与 C4.5 生成的树<strong>恰好完全相同</strong>：C4.5 在根节点计算出的增益率仍是 Outlook 最高（约 0.1564，高于湿度的约 0.1518），所以排序没有改变。差异首先体现在评分口径；树形差异通常要在取值更多的特征、连续特征或缺失值场景里才更明显。不要为了“看起来不同”而篡改算法输出。
+      </div>
+
+      <p class="takeaway"><strong>面试落点：</strong>ID3 偏多值特征；C4.5 用固有值做惩罚并支持连续值与缺失值；CART 是严格二叉树，分类看 Gini、回归看平方误差。结构约束和评分准则要分开记。</p>
+    </div>
+  </section>
+
+  <section class="stage" id="pruning" data-stage="4" aria-labelledby="pruning-title">
+    <div class="section-head">
+      <div class="section-index"><span>05</span>PRUNING</div>
+      <div class="section-heading">
+        <div class="module-kicker">复杂度 / GENERALIZATION</div>
+        <h2 id="pruning-title">树越深越准吗？<br>训练分数不等于泛化能力</h2>
+      </div>
+      <p class="section-deck">过拟合的树会把噪声和异常样本也编进规则。剪枝是在“训练误差”与“模型复杂度”之间做交易。</p>
+    </div>
+
+    <div class="section-content">
+      <div class="concept-block">
+        <span class="module-kicker">过拟合 / OVERFITTING</span>
+        <h3>无限生长，会把训练集的偶然性当成规律</h3>
+        <p>如果一直分裂到每个叶节点都纯，树会记住训练样本中的噪声、异常点与偶然组合。训练误差可能降到 0，但在测试集或真实业务上，决策边界会变得过于细碎，方差显著上升。常见信号包括：树很深、叶节点样本很少、训练准确率与验证准确率差距拉大、换一批数据后分裂特征明显变化。</p>
+        <p>剪枝有两类。预剪枝在训练过程中提前停止：限制最大深度、要求内部节点最少样本数、限制叶节点数。后剪枝先长成完整树，再自底向上评估是否把子树替换成叶节点。预剪枝便宜，但可能因为“目光短浅”而欠拟合；后剪枝计算更贵，通常能避免过早停止带来的视界受限问题。</p>
+      </div>
+
+      <div class="definition" aria-labelledby="pruning-math">
+        <h3 id="pruning-math">代价复杂度剪枝：用惩罚项控制树的规模</h3>
+        <p>CART 的后剪枝常用代价复杂度剪枝（CCP）。对一棵子树 <span class="tex-inline" data-tex="T"></span>，定义带复杂度惩罚的代价：</p>
+        <div class="formula-list">
+          <div class="formula-row">
+            <div class="formula-label">代价复杂度<br><span class="small-note">CART / CCP</span></div>
+            <div class="formula"><span class="tex" data-tex="R_\alpha(T) = R(T) + \alpha |T|"></span></div>
+          </div>
+        </div>
+        <p class="fine">其中 <span class="tex-inline" data-tex="R(T)"></span> 是训练误差，<span class="tex-inline" data-tex="|T|"></span> 是叶节点数，<span class="tex-inline" data-tex="\alpha\ge 0"></span> 控制复杂度惩罚强度。<span class="tex-inline" data-tex="\alpha"></span> 越大，越倾向于更小的树。实际选择 <span class="tex-inline" data-tex="\alpha"></span> 应依赖验证集或交叉验证，而不是测试集。C4.5 使用的是悲观错误剪枝（pessimistic error pruning），与 CART 的 CCP 不是同一套实现。</p>
+      </div>
+
+      <div class="lab" id="depthLab">
+        <div class="lab-head">
+          <div>
+            <div class="lab-kicker">EXPERIMENT 07 / 树深度与过拟合</div>
+            <h3 class="lab-title">拖动最大深度，观察树结构与两条准确率曲线</h3>
+            <p class="lab-sub">教学用合成数据：二维 XOR 边界 + 20% 标签噪声，224 个训练样本、96 个测试样本。两个滑块分别控制最大深度与叶节点最少样本数（默认 3）；曲线数值由页面内的 CART 实现实时计算。</p>
+          </div>
+          <span class="lab-mark">SYNTHETIC / CART</span>
+        </div>
+        <div class="depth-controls">
+          <label class="label" for="depthRange">MAX DEPTH</label>
+          <input id="depthRange" type="range" min="1" max="6" step="1" value="4" aria-describedby="depthStatus">
+          <strong id="depthValue" style="font-family:var(--mono);color:var(--blue-deep);min-width:48px;text-align:right">4</strong>
+          <label class="label" for="minLeafRange" style="margin-left:6px">MIN LEAF</label>
+          <input id="minLeafRange" class="min-leaf-input" type="range" min="1" max="8" step="1" value="3" aria-describedby="depthStatus">
+          <strong id="minLeafValue" style="font-family:var(--mono);color:var(--blue-deep);min-width:42px;text-align:right">3</strong>
+        </div>
+        <div class="readout" style="margin-bottom:14px" aria-live="polite">
+          <div class="readout-item"><span>训练准确率</span><strong id="trainAcc">—</strong></div>
+          <div class="readout-item red"><span>测试准确率</span><strong id="testAcc">—</strong></div>
+          <div class="readout-item"><span>泛化差距</span><strong id="accGap">—</strong></div>
+          <div class="readout-item green"><span>叶节点数</span><strong id="leafCount">—</strong></div>
+        </div>
+        <div class="depth-grid">
+          <div class="depth-tree-panel">
+            <div class="panel-head"><span>TREE STRUCTURE / depth-limited</span><span>拖动即可重绘</span></div>
+            <div class="scroll-hint">← 横向滚动查看深层树 →</div>
+            <div class="depth-tree-scroll" id="depthTreeScroll">
+              <svg id="depthTree" class="tree-svg" viewBox="0 0 900 360" role="img" aria-label="当前最大深度下的 CART 决策树"></svg>
+            </div>
+          </div>
+          <div class="depth-chart-panel">
+            <div class="panel-head"><span>ACCURACY vs DEPTH</span><span>TRAIN / TEST</span></div>
+            <svg id="depthChart" class="depth-chart" viewBox="0 0 520 320" role="img" aria-label="训练集与测试集准确率随最大深度变化的曲线"></svg>
+            <div class="chart-legend" aria-hidden="true"><span><i></i>训练集</span><span class="test"><i></i>测试集</span><span><i style="border-top:1px dashed var(--green-deep)"></i>图上测试峰值</span></div>
+            <div class="metric-mini">
+              <div><span>数据规模</span><strong>224 / 96</strong></div>
+              <div><span>噪声</span><strong>20%</strong></div>
+              <div><span>最小叶样本</span><strong id="minLeafMetric">3</strong></div>
+              <div><span>准则</span><strong>Gini</strong></div>
+            </div>
+          </div>
+        </div>
+        <div class="status-line" id="depthStatus" aria-live="polite">调整滑块查看当前深度的训练/测试表现。</div>
+        <p class="lab-note" style="margin:12px 0 0"><strong>方法学提醒：</strong>图中同时显示测试曲线，是为了直观看到“泛化”而不只是训练拟合。真实建模时，深度应由验证集或交叉验证选择，测试集只用于最终评估；否则测试集就被间接用于调参。</p>
+      </div>
+
+      <div class="concept-block">
+        <span class="module-kicker">工程落地 / WHERE IT MATTERS</span>
+        <h3>白盒的价值，在于“可追溯”而不只是“看起来简单”</h3>
+        <p>决策树适合需要输出可解释判定依据的场景：金融风控中的规则型拒绝理由、医疗辅助诊断中的风险因素排序、合规审批中的条件核查。这里的关键不是“树一定比深度学习更准”，而是模型输出可以被业务人员、审计人员或患者理解并复核。实际系统仍需要数据治理、外部验证、阈值校准和人工兜底。</p>
+        <p>同时要承认单棵树的局限：它对训练数据的小扰动敏感，方差大，稳定性弱。工业界常用集成方法降低方差或偏差：随机森林通过 Bagging 与特征随机化组合多棵树，GBDT 通过 Boosting 逐轮修正残差。它们是后续集成学习章节的直接基础。</p>
+      </div>
+
+      <div class="chain" aria-label="知识链">
+        <span>单棵决策树</span><b>→</b><span>Bagging / 随机森林</span><b>→</b><span>Boosting / GBDT</span><b>→</b><span>XGBoost / LightGBM 等工程实现</span>
+      </div>
+
+      <p class="takeaway"><strong>一句话带走：</strong>树深增加会降低训练误差，但不保证降低泛化误差。预剪枝控制“何时停”，后剪枝控制“长完以后删什么”，验证集负责选择复杂度。</p>
+    </div>
+  </section>
+
+  <section class="stage" id="code" data-stage="5" aria-labelledby="code-title">
+    <div class="section-head">
+      <div class="section-index"><span>06</span>PRACTICE</div>
+      <div class="section-heading">
+        <div class="module-kicker">代码实战 / SCIKIT-LEARN</div>
+        <h2 id="code-title">用 scikit-learn<br>复现一棵 CART 分类树</h2>
+      </div>
+      <p class="section-deck">Iris 数据集、固定随机种子、限制最大深度。运行后观察准确率、叶节点数与特征重要性。</p>
+    </div>
+
+    <div class="section-content">
+      <div class="concept-block">
+        <span class="module-kicker">实现提醒 / IMPLEMENTATION NOTE</span>
+        <h3>scikit-learn 的树是“CART 系”的实现</h3>
+        <p>下面的代码使用 <code>DecisionTreeClassifier</code>。默认 <code>criterion="gini"</code> 对应 CART 分类树的 Gini 不纯度；即使改成 <code>criterion="entropy"</code>，树仍然是二叉的，只是选择分裂时改用信息熵。不要把“准则”与“树形”混为一谈。</p>
+        <p>Iris 的四个特征都是数值型，因此可以直接训练。真实数据中的字符串类别通常需要先编码；缺失值、类别不平衡和特征尺度也需要单独处理。这里的 <code>max_depth=3</code> 是一个显式的预剪枝设置。</p>
+      </div>
+
+      <div class="code-lab">
+        <div class="code-head">
+          <div class="code-file"><span>PYTHON 3.10+ /</span> iris_decision_tree.py</div>
+          <button class="copy-btn" id="copyCode" type="button" aria-label="复制代码">复制代码</button>
+        </div>
+        <div class="code-layout">
+          <div class="code-scroll">
+<pre class="code-block" id="irisCode"><code><span class="code-comment"># 需要：Python 3.10+，scikit-learn 1.x</span>
+<span class="code-keyword">from</span> sklearn.datasets <span class="code-keyword">import</span> load_iris
+<span class="code-keyword">from</span> sklearn.model_selection <span class="code-keyword">import</span> train_test_split
+<span class="code-keyword">from</span> sklearn.tree <span class="code-keyword">import</span> DecisionTreeClassifier
+<span class="code-keyword">from</span> sklearn.metrics <span class="code-keyword">import</span> accuracy_score
+
+iris = load_iris()
+X, y = iris.data, iris.target
+
+<span class="code-comment"># stratify=y 保持训练/测试集中的类别比例一致</span>
+X_train, X_test, y_train, y_test = train_test_split(
+    X, y, test_size=<span class="code-number">0.3</span>, random_state=<span class="code-number">42</span>, stratify=y
+)
+
+clf = DecisionTreeClassifier(
+    criterion=<span class="code-string">"gini"</span>,   <span class="code-comment"># CART 分类树的不纯度准则</span>
+    max_depth=<span class="code-number">3</span>,        <span class="code-comment"># 预剪枝：限制最大深度</span>
+    random_state=<span class="code-number">42</span>
+)
+clf.fit(X_train, y_train)
+
+y_pred = clf.predict(X_test)
+print(<span class="code-string">f"test accuracy: {accuracy_score(y_test, y_pred):.3f}"</span>)
+print(<span class="code-string">f"depth: {clf.get_depth()}, leaves: {clf.get_n_leaves()}"</span>)
+
+<span class="code-comment"># Gini importance：各特征对总不纯度下降的归一化贡献</span>
+<span class="code-keyword">for</span> name, importance <span class="code-keyword">in</span> zip(iris.feature_names, clf.feature_importances_):
+    print(<span class="code-string">f"{name:&gt;18}: {importance:.4f}"</span>)</code></pre>
+          </div>
+          <aside class="code-notes">
+            <h3>读代码时抓住 5 个点</h3>
+            <ol>
+              <li><strong>先划分，再训练：</strong><code>stratify=y</code> 避免某一类在测试集中过少，固定 <code>random_state</code> 保证可复现。</li>
+              <li><strong>准则不是树形：</strong><code>gini</code> 或 <code>entropy</code> 只改变不纯度评分；scikit-learn 仍然生成二叉 CART 树。</li>
+              <li><strong>深度是预剪枝：</strong><code>max_depth=3</code> 是工程上常见的复杂度控制。真实调参应做验证曲线或交叉验证。</li>
+              <li><strong>特征重要性不是因果：</strong>Gini importance 衡量的是不纯度下降的总贡献，相关特征可能分摊重要性，不能直接解释为“特征导致结果”。</li>
+              <li><strong>输出只是起点：</strong>准确率之外，还应检查混淆矩阵、类别召回率、树结构和业务约束。</li>
+            </ol>
+            <div class="output-note">示例输出（scikit-learn 1.8.0）：test accuracy ≈ 0.978；feature importances ≈ [0, 0, 0.5509, 0.4491]。不同版本或数据划分可能略有差异。</div>
+          </aside>
+        </div>
+      </div>
+
+      <details class="self-check">
+        <summary>自检三问：能不能用自己的话答出来？</summary>
+        <div class="answer">
+          <p><strong>1. 二分类正负各占 50% 时，熵和 Gini 分别是多少？</strong><br>信息熵为 1 bit，Gini 为 0.5。它们都达到二分类场景各自的最大值，但不是同一个尺度。</p>
+          <p><strong>2. 为什么 ID3 会偏爱取值多的特征？</strong><br>因为按多取值特征切分容易产生更纯的小子集，信息增益可能很高；极端情况下，唯一编号可以把每个样本切成单点纯节点。C4.5 用固有值惩罚这种“切碎”倾向。</p>
+          <p><strong>3. 为什么训练准确率不能单独证明模型好？</strong><br>树越深越容易拟合训练噪声，训练准确率上升不代表测试集/真实数据上的泛化误差下降。应结合验证集、测试集和模型复杂度一起判断。</p>
+        </div>
+      </details>
+
+      <blockquote class="closing-quote">“决策树的每一次分裂，都应该能在数据、公式和业务约束之间找到理由。”<small>本页实验台 / 机器学习第 4 章</small></blockquote>
+      <div class="hero-actions" style="margin-top:18px"><a class="btn" href="#ai-case">进入彩蛋：AI 侦探社 <span aria-hidden="true">→</span></a></div>
+    </div>
+  </section>
+  <section class="stage bonus-stage" id="ai-case" aria-labelledby="ai-case-title">
+    <div class="section-head">
+      <div class="section-index"><span>CASE</span>BONUS</div>
+      <div class="section-heading">
+        <div class="module-kicker">彩蛋案例 / DECISION TREE IN THE WILD</div>
+        <h2 id="ai-case-title">用一棵树，辨一辨<br>四种 AI 产品入口</h2>
+      </div>
+      <p class="section-deck">把前面学的递归划分拿来做一个“AI 侦探社”小游戏。注意：这棵树识别的是官方产品入口，不是底层模型指纹。</p>
+    </div>
+
+    <div class="section-content">
+      <div class="concept-block">
+        <span class="module-kicker">案例说明 / READ ME FIRST</span>
+        <h3>决策树可以帮你分类，但不能凭“说话风格”鉴定模型</h3>
+        <p>这里把 Claude、Codex、GPT/ChatGPT、DeepSeek 放到同一棵产品级判定树里：先问官方入口来自哪家生态，再问 OpenAI 入口是编码代理还是通用助手。它演示的是<strong>决策路径与标签设计</strong>，不是“AI 鉴伪器”。</p>
+        <p>尤其要注意：<strong>Codex 与 GPT 不是互斥的模型类别</strong>。Codex 是 OpenAI 的编码代理入口，也是本页的讲解者；GPT 是 OpenAI 的模型家族，ChatGPT 是面向用户的助手产品。真实底层模型可能被路由、套壳、微调或切换版本，不能只靠文风、自称或几轮对话下结论。</p>
+        <p class="small-note">下面四个标识用于<strong>产品识别</strong>，采用各品牌公开使用的标志性图形（简化 SVG）：Claude、Codex/OpenAI、GPT/ChatGPT、DeepSeek。商标归各自权利人所有；本页只做教学分类，不暗示官方背书。</p>
+      </div>
+
+      <div class="ai-lab" id="aiLab">
+        <div class="ai-head">
+          <div>
+            <div class="ai-kicker">AI 侦探社 / PRODUCT-LEVEL TRACE</div>
+            <h3 class="ai-title">问两个问题，看看线索会把你带到哪里</h3>
+            <p class="ai-sub">手动选择，或点击“自动演示”让四个案例依次走完整条路径。高亮边表示当前判定路径。</p>
+          </div>
+          <span class="ai-mark">LIVE / 4 CASES</span>
+        </div>
+        <div class="ai-controls">
+          <div class="ai-choice-group">
+            <span class="ai-choice-label">Q1 · 官方产品入口</span>
+            <button class="ai-choice" type="button" data-ai-origin="openai">OpenAI</button>
+            <button class="ai-choice" type="button" data-ai-origin="anthropic">Anthropic</button>
+            <button class="ai-choice" type="button" data-ai-origin="deepseek">DeepSeek</button>
+          </div>
+          <div class="ai-choice-group ai-type-group" id="aiTypeGroup">
+            <span class="ai-choice-label">Q2 · OpenAI 入口类型</span>
+            <button class="ai-choice" type="button" data-ai-type="agent">Codex / 编码代理</button>
+            <button class="ai-choice" type="button" data-ai-type="general">GPT / 通用助手</button>
+          </div>
+          <div class="ai-actions">
+            <button class="btn compact" id="aiDemo" type="button" aria-pressed="false">自动演示</button>
+            <button class="btn compact" id="aiReset" type="button">重来</button>
+          </div>
+        </div>
+        <div class="ai-brand-strip" aria-label="AI 品牌标识">
+          <span class="ai-brand-strip-label">官方品牌标识 / 点一个直接追踪（仅用于识别）</span>
+          <button class="ai-brand-chip" type="button" data-ai-brand="claude" aria-label="Claude 品牌图标">
+            <span class="ai-brand-icon" data-brand-icon="claude" aria-hidden="true"></span><span>Claude</span>
+          </button>
+          <button class="ai-brand-chip" type="button" data-ai-brand="codex" aria-label="Codex 品牌图标">
+            <span class="ai-brand-icon" data-brand-icon="codex" aria-hidden="true"></span><span>Codex</span>
+          </button>
+          <button class="ai-brand-chip" type="button" data-ai-brand="gpt" aria-label="GPT 品牌图标">
+            <span class="ai-brand-icon" data-brand-icon="gpt" aria-hidden="true"></span><span>GPT / ChatGPT</span>
+          </button>
+          <button class="ai-brand-chip" type="button" data-ai-brand="deepseek" aria-label="DeepSeek 品牌图标">
+            <span class="ai-brand-icon" data-brand-icon="deepseek" aria-hidden="true"></span><span>DeepSeek</span>
+          </button>
+        </div>
+        <div class="scroll-hint ai-scroll-hint">← 横向滑动查看完整分类树 →</div>
+        <div class="ai-grid">
+          <div class="ai-tree-shell" id="aiTreeShell">
+            <div class="ai-scan" aria-hidden="true"></div>
+            <svg id="aiTree" class="ai-tree-svg" viewBox="0 0 720 410" role="img" aria-label="AI 产品入口识别决策树"></svg>
+          </div>
+          <aside class="ai-result" id="aiResult" aria-live="polite">
+            <div class="ai-avatar codex" id="aiAvatar" aria-hidden="true"></div>
+            <div class="ai-result-kicker">IDENTIFIED / PRODUCT LEVEL</div>
+            <h3 id="aiName">Codex</h3>
+            <p class="ai-tagline" id="aiTagline">OpenAI 的编码代理入口；也是本页的讲解者。</p>
+            <div class="ai-path" id="aiPath">官方入口 OpenAI → 编码代理 → Codex</div>
+            <p class="ai-explainer" id="aiExplainer">它和 GPT 不是互斥类别：Codex 强调编码代理体验，GPT 是模型家族名称。</p>
+          </aside>
+        </div>
+        <p class="ai-case-note"><strong>教学点：</strong>树越漂亮，不代表标签越可靠。若把“文风像谁”当特征，模型路由、系统提示和角色扮演都会让节点迅速失效。可靠做法是查看官方产品标识、API/模型名称、系统卡与文档；不要用这棵树给真实模型“验明正身”。</p>
+      </div>
+
+      <div class="callout warning">
+        <span class="label">边界声明</span>
+        本案例只做产品入口的概念分类，不声称能区分底层模型，也不把 Claude、Codex、GPT、DeepSeek 视为同一层级的互斥对象。真实 AI 系统可能包含多个模型、工具调用与安全层；身份识别应以官方信息为准。
+      </div>
+
+      <p class="takeaway"><strong>把决策树用在正确的粒度上：</strong>如果目标是解释“我该走哪个产品入口”，树很好用；如果目标是“识别对话背后的真实模型”，仅靠行为特征并不可靠。</p>
+    </div>
+  </section>
+</main>
+
+<footer>
+  <div class="footer-grid">
+    <div>
+      <h2>参考与延伸</h2>
+      <ol>
+        <li>周志华. 机器学习[M]. 北京: 清华大学出版社, 2016. 第 4 章“决策树”.</li>
+        <li>Quinlan, J. R. Induction of Decision Trees[J]. Machine Learning, 1986, 1(1): 81–106. <a href="https://doi.org/10.1007/BF00116251" target="_blank" rel="noopener">DOI: 10.1007/BF00116251</a>.</li>
+        <li>Quinlan, J. R. C4.5: Programs for Machine Learning[M]. San Mateo: Morgan Kaufmann, 1993.</li>
+        <li>Breiman, L., Friedman, J. H., Olshen, R. A., &amp; Stone, C. J. Classification and Regression Trees[M]. Wadsworth, 1984.</li>
+        <li>scikit-learn developers. <a href="https://scikit-learn.org/stable/modules/tree.html" target="_blank" rel="noopener">Decision Trees</a> 与 <a href="https://scikit-learn.org/stable/modules/generated/sklearn.tree.DecisionTreeClassifier.html" target="_blank" rel="noopener">DecisionTreeClassifier</a>. 官方文档.</li>
+        <li>Fisher, R. A. The use of multiple measurements in taxonomic problems[J]. Annals of Eugenics, 1936, 7(2): 179–188.</li>
+        <li>彩蛋案例的产品入口说明：<a href="https://openai.com/codex/" target="_blank" rel="noopener">OpenAI Codex</a>、<a href="https://chatgpt.com/" target="_blank" rel="noopener">ChatGPT</a>、<a href="https://www.anthropic.com/claude" target="_blank" rel="noopener">Anthropic Claude</a>、<a href="https://www.deepseek.com/" target="_blank" rel="noopener">DeepSeek</a>（访问日期：2026-10-25）。品牌图标路径参考 <a href="https://simpleicons.org/" target="_blank" rel="noopener">Simple Icons</a> 开源图标库；名称与标识为各自权利人商标，仅用于识别。</li>
+      </ol>
+    </div>
+    <div>
+      <div class="footer-note">
+        <strong>关于数据：</strong>PlayTennis 是 Quinlan 的经典教学数据集，用于展示 ID3；深度实验使用<strong>合成数据</strong>（二维 XOR + 20% 标签噪声），不是真实业务数据。所有公式、分裂数值和曲线均由页面内的离线实现计算或核对；没有引入外部图表库、字体、图片或 CDN。
+      </div>
+      <div class="chain" style="margin-top:18px">
+        <span>单文件</span><b>·</b><span>零外部依赖</span><b>·</b><span>桌面 / 移动端</span>
+      </div>
+    </div>
+  </div>
+  <div class="footer-mark">
+    <span>DT//LAB · MACHINE LEARNING CH.04</span>
+    <span>ACADEMIC NOTE / INTERACTIVE TUTORIAL · 2026</span>
+  </div>
+</footer>
+
+<dialog class="node-dialog" id="nodeDialog" aria-labelledby="nodeDialogTitle">
+  <div class="dialog-head">
+    <div>
+      <div class="dialog-kicker">NODE INSPECTOR</div>
+      <h3 class="dialog-title" id="nodeDialogTitle">节点详情</h3>
+    </div>
+    <form method="dialog"><button class="dialog-close" type="submit" aria-label="关闭节点详情">×</button></form>
+  </div>
+  <div class="dialog-body" id="nodeDialogBody"></div>
+</dialog>
+
+<script>
+(function(){
+  'use strict';
+
+  const $ = (sel, ctx = document) => ctx.querySelector(sel);
+  const $$ = (sel, ctx = document) => Array.from(ctx.querySelectorAll(sel));
+  const fmt = (x, n = 4) => Number(x).toFixed(n);
+  const esc = (s) => String(s).replace(/[&<>"']/g, (ch) => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[ch]));
+  const log2 = (x) => Math.log(x) / Math.LN2;
+  let uid = 0;
+
+  /* ---------------- PlayTennis ---------------- */
+  const PLAY_FEATURES = ['Outlook', 'Temperature', 'Humidity', 'Wind'];
+  const PLAY_DOMAINS = {
+    Outlook: ['Sunny', 'Overcast', 'Rain'],
+    Temperature: ['Hot', 'Mild', 'Cool'],
+    Humidity: ['High', 'Normal'],
+    Wind: ['Weak', 'Strong']
+  };
+  const PLAY_ROWS = [
+    ['Sunny','Hot','High','Weak','No'], ['Sunny','Hot','High','Strong','No'],
+    ['Overcast','Hot','High','Weak','Yes'], ['Rain','Mild','High','Weak','Yes'],
+    ['Rain','Cool','Normal','Weak','Yes'], ['Rain','Cool','Normal','Strong','No'],
+    ['Overcast','Cool','Normal','Strong','Yes'], ['Sunny','Mild','High','Weak','No'],
+    ['Sunny','Cool','Normal','Weak','Yes'], ['Rain','Mild','Normal','Weak','Yes'],
+    ['Sunny','Mild','Normal','Strong','Yes'], ['Overcast','Mild','High','Strong','Yes'],
+    ['Overcast','Hot','Normal','Weak','Yes'], ['Rain','Mild','High','Strong','No']
+  ].map((r, i) => ({ id: i + 1, Outlook: r[0], Temperature: r[1], Humidity: r[2], Wind: r[3], Play: r[4] }));
+
+  /* ---------------- Synthetic depth dataset ----------------
+     A fixed 320-point dataset: XOR boundary + 20% label noise.
+     First 224 rows are training data; the remaining 96 are test data. */
+  const DEPTH_DATA = [[-0.14004,-0.95099,1],[-0.28394,-0.30056,1],[-0.4154,0.56833,0],[0.38526,-0.24538,1],[0.20435,-0.42378,0],[-0.33897,-0.41141,1],[0.64643,0.5947,1],[-0.99078,0.66568,0],[-0.75941,0.33923,1],[-0.03731,-0.05529,1],[-0.84978,0.47534,0],[0.60522,-0.59593,0],[0.036,-0.44345,0],[-0.82081,-0.54944,0],[0.71023,-0.92012,0],[-0.99582,0.78049,0],[0.6253,0.39776,1],[0.53545,0.00164,1],[-0.56735,0.45188,0],[-0.96041,-0.15855,1],[-0.03364,0.93957,1],[-0.33561,0.06029,0],[-0.02943,-0.17658,1],[-0.35391,0.22211,1],[0.52191,0.8323,1],[0.95952,-0.21817,1],[0.40385,-0.77186,0],[0.17982,0.32916,1],[-0.60577,-0.53311,1],[-0.40031,0.08841,0],[-0.42647,-0.22268,0],[0.8788,-0.99074,0],[-0.19919,0.03727,0],[0.55347,0.95943,0],[-0.44887,-0.1121,1],[0.39166,-0.53559,0],[-0.18732,-0.18998,1],[0.17385,-0.71481,1],[-0.1408,-0.0837,1],[0.70096,-0.62682,0],[0.22892,-0.87699,0],[-0.075,-0.84688,1],[0.60954,-0.46371,0],[0.77123,0.01256,0],[-0.31412,-0.77676,1],[-0.52882,-0.56065,0],[0.33503,0.82805,1],[-0.07324,-0.57054,1],[0.38866,-0.66904,0],[0.7045,-0.55646,1],[0.50766,0.60879,0],[-0.82431,0.99849,0],[-0.17565,-0.92479,1],[-0.48036,0.76311,0],[-0.48376,-0.45088,1],[-0.81404,-0.92426,1],[0.59458,-0.21789,0],[-0.99459,-0.25919,1],[-0.18103,-0.31994,1],[-0.17555,-0.16791,1],[0.89793,-0.58325,1],[0.3993,-0.85666,0],[-0.95768,-0.83815,1],[-0.36299,-0.93091,1],[-0.29979,-0.76974,1],[0.93038,-0.97024,1],[-0.64519,0.62309,0],[-0.4824,0.76263,0],[-0.93111,-0.06302,0],[-0.16601,0.36177,0],[-0.70158,-0.46213,0],[0.79635,-0.02549,0],[0.90292,-0.66342,0],[0.93832,-0.97713,0],[-0.08404,0.05978,0],[-0.88645,0.74221,0],[-0.92648,-0.91552,1],[-0.31167,-0.53388,0],[-0.79865,-0.06944,1],[0.11504,0.80477,1],[-0.40941,0.00297,0],[-0.13778,-0.74009,1],[-0.91071,-0.88665,1],[0.25091,-0.17504,0],[0.25591,0.60787,1],[0.60202,-0.32312,0],[0.40769,0.77701,1],[-0.14746,-0.80138,1],[0.22897,0.06392,1],[-0.84079,0.88406,1],[-0.87628,-0.50527,1],[-0.82254,0.27925,0],[0.39201,0.35744,1],[-0.88164,-0.92747,1],[-0.26557,-0.56986,1],[0.3149,-0.56992,1],[-0.96309,0.01824,0],[-0.20231,-0.30371,1],[-0.5524,-0.56763,1],[-0.45415,0.73945,0],[0.4545,0.7396,0],[-0.66191,0.25625,0],[-0.3312,-0.0903,1],[-0.09696,0.37615,1],[-0.57646,0.73283,1],[0.16376,0.62063,1],[-0.12969,0.09436,1],[0.31961,0.15481,1],[0.48966,-0.41794,0],[-0.88698,-0.04405,1],[0.44744,0.4166,1],[0.60898,-0.70008,0],[-0.97569,0.36559,0],[0.91767,0.68412,1],[-0.48871,0.94753,0],[-0.27034,-0.65655,1],[-0.73199,0.04247,0],[-0.24859,-0.48586,1],[0.69391,-0.50813,0],[-0.41804,0.60987,0],[-0.97793,0.72754,0],[-0.37886,0.06387,1],[-0.34991,0.4408,0],[0.51898,-0.33131,0],[-0.7067,-0.96508,1],[0.18231,-0.93556,0],[-0.42005,0.27717,0],[0.22711,0.74166,0],[0.03699,0.97457,1],[0.61174,-0.829,0],[0.68674,-0.80753,0],[0.57025,-0.38813,0],[-0.72279,0.0678,0],[-0.01806,-0.19855,0],[-0.84095,0.9999,0],[0.39494,-0.4935,0],[-0.64384,-0.5113,1],[0.6003,0.16694,1],[-0.89828,-0.64219,1],[0.96214,0.52644,1],[-0.62702,-0.07094,1],[0.21452,-0.29395,0],[0.45655,-0.05235,0],[0.3187,0.20915,1],[-0.77272,-0.74333,1],[0.53403,-0.45776,0],[0.1817,-0.82086,0],[-0.08323,0.17827,1],[-0.75008,-0.63974,1],[-0.78318,0.55828,0],[-0.34161,0.35823,1],[0.10558,-0.1348,0],[-0.36972,0.13831,0],[-0.56551,0.54654,0],[0.6329,-0.6057,0],[0.57547,-0.84513,0],[0.37518,0.71104,1],[0.11602,-0.58175,0],[0.62776,-0.85048,0],[0.57902,-0.90611,1],[0.66838,0.23865,1],[0.01663,0.54827,1],[-0.46853,-0.01444,1],[0.35817,-0.92294,0],[0.2017,0.49554,1],[-0.82846,0.58388,0],[0.57319,0.72847,1],[0.95812,0.9848,1],[0.76594,0.6484,1],[-0.70535,-0.98443,1],[0.90484,-0.8266,0],[0.57232,-0.96002,0],[0.89026,-0.42008,0],[0.31053,-0.11793,0],[-0.26234,-0.12379,1],[0.31821,-0.78866,0],[-0.90047,0.91663,1],[-0.35919,0.04582,0],[0.55517,0.32945,1],[-0.53503,0.74715,0],[-0.34472,-0.02443,1],[-0.92292,0.17005,0],[0.88394,-0.70197,0],[-0.20199,0.63432,1],[-0.56574,-0.4628,1],[0.66806,-0.12307,0],[-0.20098,0.87264,0],[-0.11769,0.93156,0],[0.18307,0.23295,1],[-0.8064,0.63033,0],[0.78904,-0.39536,0],[-0.07181,0.28573,1],[-0.73784,-0.07837,1],[0.87827,0.85122,1],[0.48944,-0.17676,0],[0.3177,0.98325,0],[-0.44968,0.20735,0],[0.15128,0.43694,1],[0.13125,0.15019,1],[0.51176,0.91582,1],[0.81377,-0.95637,0],[-0.70794,-0.1253,1],[-0.62721,0.68928,0],[-0.01126,0.33412,1],[-0.30594,0.33444,0],[-0.83237,0.67583,0],[-0.25454,-0.61591,1],[-0.22934,-0.41118,1],[0.48477,0.48065,1],[0.80227,-0.89798,0],[0.99454,0.70169,0],[-0.25831,0.67954,1],[0.71675,-0.41141,1],[0.27845,-0.49042,0],[0.44416,0.70217,1],[0.09339,-0.25939,0],[0.61337,-0.4498,0],[0.29973,0.06666,1],[-0.74882,0.24596,0],[-0.77699,0.09217,0],[-0.09879,0.67683,0],[0.9153,-0.63327,0],[0.29735,0.07175,1],[-0.30793,0.98151,0],[-0.22237,-0.40675,1],[-0.89792,0.13474,0],[-0.95019,0.79271,0],[0.88904,0.42875,1],[0.28586,-0.12485,0],[-0.65718,0.52527,0],[0.18339,0.04852,1],[0.04771,-0.27441,0],[0.93549,-0.36031,0],[-0.3404,0.18477,0],[-0.55477,-0.0465,1],[-0.51853,0.15437,0],[0.91004,-0.78077,0],[0.34976,-0.46587,1],[0.72712,0.5037,1],[-0.82016,0.64176,0],[-0.49243,-0.24987,1],[0.14823,0.42251,0],[-0.4366,0.91322,0],[0.35196,0.71552,1],[-0.95689,-0.47309,1],[-0.73974,0.19885,1],[-0.95016,0.10855,0],[0.23386,-0.18396,0],[-0.4294,0.23564,0],[-0.66626,-0.17629,1],[0.90379,-0.54603,0],[0.91454,-0.97669,0],[-0.1804,-0.58745,1],[-0.60345,0.91875,0],[0.46273,0.01237,0],[0.98329,-0.86764,0],[-0.23897,-0.98637,1],[0.55387,-0.84014,0],[-0.61858,0.70855,0],[0.68475,-0.6758,0],[-0.78622,-0.21081,1],[0.37093,-0.13823,1],[0.08074,-0.84134,0],[-0.33779,0.58098,0],[0.37085,0.52137,1],[-0.62796,0.49382,1],[0.32773,0.17625,1],[-0.5639,0.33807,1],[0.1766,-0.26139,0],[-0.99892,-0.34612,0],[-0.81749,0.23669,0],[-0.43211,-0.05066,0],[-0.99611,-0.61352,1],[-0.74517,0.41663,1],[-0.7271,-0.10544,1],[0.2322,-0.91242,0],[-0.49086,0.72223,0],[0.4314,-0.74825,0],[-0.13283,0.77203,0],[0.60247,-0.84688,0],[0.02362,-0.10863,1],[0.87328,-0.54546,0],[-0.62249,0.61207,0],[0.03054,-0.72167,1],[-0.42111,-0.01464,1],[-0.77908,-0.16961,1],[-0.56623,0.22046,0],[-0.48261,-0.21772,1],[-0.90278,-0.25612,1],[-0.08295,-0.49198,1],[-0.76918,-0.71076,1],[-0.5601,-0.69406,0],[0.90063,-0.91055,0],[-0.04721,0.63147,1],[0.42494,-0.11751,0],[0.20812,-0.47249,0],[-0.84104,0.61408,0],[0.36691,-0.3405,1],[-0.71505,-0.75208,1],[0.3111,0.05633,0],[-0.32789,0.70218,0],[-0.05497,-0.95041,0],[0.19274,-0.93938,1],[-0.28142,0.11916,0],[0.24742,-0.30496,1],[0.08022,0.076,1],[-0.22908,-0.77381,1],[0.21984,0.97114,1],[0.3381,0.33381,1],[0.05508,0.674,1],[0.63666,0.97359,0],[-0.04845,-0.46186,1],[0.54996,0.50252,1],[-0.49887,0.79273,0],[0.24804,0.22384,0],[0.97769,-0.95098,1],[0.70951,-0.86383,0],[-0.71887,0.99786,0],[0.92524,0.77788,0],[-0.17858,0.96331,0]];
+  const DEPTH_ROWS = DEPTH_DATA.map((r, i) => ({ x: r[0], y: r[1], label: r[2], index: i }));
+  const DEPTH_TRAIN = DEPTH_ROWS.slice(0, 224);
+  const DEPTH_TEST = DEPTH_ROWS.slice(224);
+
+  /* ---------------- impurity and split metrics ---------------- */
+  function entropyRows(rows, labelKey = 'Play'){
+    const n = rows.length;
+    if (!n) return 0;
+    const counts = {};
+    rows.forEach(r => { const k = r[labelKey]; counts[k] = (counts[k] || 0) + 1; });
+    return -Object.values(counts).reduce((sum, count) => {
+      const p = count / n;
+      return sum + (p > 0 ? p * log2(p) : 0);
+    }, 0);
+  }
+  function giniRows(rows, labelKey = 'Play'){
+    const n = rows.length;
+    if (!n) return 0;
+    const counts = {};
+    rows.forEach(r => { const k = r[labelKey]; counts[k] = (counts[k] || 0) + 1; });
+    return 1 - Object.values(counts).reduce((sum, count) => sum + Math.pow(count / n, 2), 0);
+  }
+  function playCounts(rows){
+    const counts = { Yes: 0, No: 0 };
+    rows.forEach(r => { counts[r.Play] += 1; });
+    return counts;
+  }
+  function majorityPlay(rows){
+    const c = playCounts(rows);
+    return c.Yes >= c.No ? 'Yes' : 'No';
+  }
+  function multiGroups(rows, feature){
+    const groups = {};
+    PLAY_DOMAINS[feature].forEach(v => { groups[v] = []; });
+    rows.forEach(r => groups[r[feature]].push(r));
+    return groups;
+  }
+  function featureMetrics(rows, feature){
+    const H = entropyRows(rows);
+    const groups = multiGroups(rows, feature);
+    let weighted = 0;
+    let iv = 0;
+    Object.values(groups).forEach(g => {
+      if (!g.length) return;
+      const w = g.length / rows.length;
+      weighted += w * entropyRows(g);
+      iv -= w * log2(w);
+    });
+    const gain = H - weighted;
+    return { H, groups, weighted, gain, iv, ratio: iv > 1e-12 ? gain / iv : 0 };
+  }
+  function makePlayLeaf(rows, path, algorithm){
+    return {
+      id: 'n' + (++uid), leaf: true, label: majorityPlay(rows), n: rows.length,
+      counts: playCounts(rows), H: entropyRows(rows), G: giniRows(rows),
+      path: path.slice(), algorithm, labelType: 'play'
+    };
+  }
+  function buildId3(rows, features, algorithm, path = []){
+    const counts = playCounts(rows);
+    if (Object.values(counts).filter(v => v > 0).length === 1 || features.length === 0) {
+      return makePlayLeaf(rows, path, algorithm);
+    }
+    const candidates = features.map(feature => ({ feature, ...featureMetrics(rows, feature) }))
+      .filter(c => c.gain > 1e-12);
+    if (!candidates.length) return makePlayLeaf(rows, path, algorithm);
+    candidates.sort((a, b) => {
+      const av = algorithm === 'id3' ? a.gain : a.ratio;
+      const bv = algorithm === 'id3' ? b.gain : b.ratio;
+      return (bv - av) || (b.gain - a.gain) || (PLAY_FEATURES.indexOf(a.feature) - PLAY_FEATURES.indexOf(b.feature));
+    });
+    const best = candidates[0];
+    const children = [];
+    PLAY_DOMAINS[best.feature].forEach(value => {
+      const group = best.groups[value];
+      if (group && group.length) {
+        children.push({
+          label: value,
+          node: buildId3(group, features.filter(f => f !== best.feature), algorithm, path.concat(`${best.feature} = ${value}`))
+        });
+      }
+    });
+    return {
+      id: 'n' + (++uid), leaf: false, feature: best.feature, n: rows.length,
+      counts, H: best.H, G: giniRows(rows), gain: best.gain, iv: best.iv, ratio: best.ratio,
+      score: algorithm === 'id3' ? best.gain : best.ratio, children,
+      path: path.slice(), algorithm, labelType: 'play'
+    };
+  }
+  function buildCartPlay(rows, depth = 0, path = [], maxDepth = 10){
+    const counts = playCounts(rows);
+    const n = rows.length;
+    const H = entropyRows(rows);
+    const G = giniRows(rows);
+    if (Object.values(counts).filter(v => v > 0).length === 1 || depth >= maxDepth) {
+      return makePlayLeaf(rows, path, 'cart');
+    }
+    let best = null;
+    for (const feature of PLAY_FEATURES) {
+      const values = PLAY_DOMAINS[feature];
+      const limit = 1 << values.length;
+      for (let mask = 1; mask < limit - 1; mask++) {
+        if (!(mask & 1)) continue; // canonical split: first category on the left
+        let leftValues = values.filter((v, i) => mask & (1 << i));
+        let rightValues = values.filter((v, i) => !(mask & (1 << i)));
+        if (!leftValues.length || !rightValues.length) continue;
+        let left = rows.filter(r => leftValues.includes(r[feature]));
+        let right = rows.filter(r => rightValues.includes(r[feature]));
+        if (!left.length || !right.length) continue;
+        const score = G - (left.length / n * giniRows(left) + right.length / n * giniRows(right));
+        // Name the smaller side in the condition so a singleton branch reads naturally.
+        if (rightValues.length < leftValues.length) {
+          [leftValues, rightValues] = [rightValues, leftValues];
+          [left, right] = [right, left];
+        }
+        const leftLabel = leftValues.length === 1 ? `${feature} = ${leftValues[0]}` : `${feature} ∈ {${leftValues.join(', ')}}`;
+        if (!best || score > best.score + 1e-12 || (Math.abs(score - best.score) <= 1e-12 && leftValues.length < best.leftValues.length)) {
+          best = { feature, leftValues, left, right, score, leftLabel };
+        }
+      }
+    }
+    if (!best || best.score <= 1e-12) return makePlayLeaf(rows, path, 'cart');
+    const children = [
+      { label: '是', node: buildCartPlay(best.left, depth + 1, path.concat(best.leftLabel), maxDepth) },
+      { label: '否', node: buildCartPlay(best.right, depth + 1, path.concat(`非(${best.leftLabel})`), maxDepth) }
+    ];
+    return {
+      id: 'n' + (++uid), leaf: false, feature: best.feature, condition: best.leftLabel,
+      n, counts, H, G, score: best.score, children, path: path.slice(),
+      algorithm: 'cart', labelType: 'play', splitValues: best.leftValues
+    };
+  }
+  /* ---------------- numeric CART for the depth lab ---------------- */
+  function countNumeric(rows){
+    let yes = 0;
+    rows.forEach(r => { if (r.label === 1) yes += 1; });
+    return { n: rows.length, yes, no: rows.length - yes };
+  }
+  function entropyNumeric(rows){
+    const n = rows.length;
+    if (!n) return 0;
+    const yes = rows.reduce((s, r) => s + (r.label === 1 ? 1 : 0), 0);
+    const p = yes / n;
+    return -((p > 0 ? p * log2(p) : 0) + (p < 1 ? (1 - p) * log2(1 - p) : 0));
+  }
+  function giniNumeric(rows){
+    const n = rows.length;
+    if (!n) return 0;
+    const yes = rows.reduce((s, r) => s + (r.label === 1 ? 1 : 0), 0);
+    const p = yes / n;
+    return 1 - p * p - (1 - p) * (1 - p);
+  }
+  function makeNumericLeaf(rows, path, extra = {}){
+    const c = countNumeric(rows);
+    return {
+      id: 'n' + (++uid), leaf: true, label: c.yes * 2 >= c.n ? 1 : 0,
+      n: c.n, counts: { 1: c.yes, 0: c.no }, H: entropyNumeric(rows), G: giniNumeric(rows),
+      path: path.slice(), labelType: 'numeric', kind: 'numeric', ...extra
+    };
+  }
+  function buildNumericCart(rows, maxDepth, depth = 0, path = [], minLeaf = 3){
+    const c = countNumeric(rows);
+    if (c.yes === 0 || c.no === 0 || depth >= maxDepth || rows.length < 2 * minLeaf) {
+      return makeNumericLeaf(rows, path);
+    }
+    const G = giniNumeric(rows);
+    let best = null;
+    ['x', 'y'].forEach(feature => {
+      const vals = Array.from(new Set(rows.map(r => r[feature]))).sort((a, b) => a - b);
+      for (let i = 0; i < vals.length - 1; i++) {
+        const threshold = (vals[i] + vals[i + 1]) / 2;
+        let left = rows.filter(r => r[feature] <= threshold);
+        let right = rows.filter(r => r[feature] > threshold);
+        if (left.length < minLeaf || right.length < minLeaf) continue;
+        const score = G - (left.length / rows.length * giniNumeric(left) + right.length / rows.length * giniNumeric(right));
+        if (!best || score > best.score + 1e-12 ||
+            (Math.abs(score - best.score) < 1e-12 && feature === 'x' && best.feature !== 'x')) {
+          best = { feature, threshold, left, right, score };
+        }
+      }
+    });
+    if (!best || best.score <= 1e-12) return makeNumericLeaf(rows, path);
+    const xName = best.feature === 'x' ? 'x₁' : 'x₂';
+    const leftLabel = `${xName} ≤ ${best.threshold.toFixed(2)}`;
+    const rightLabel = `${xName} > ${best.threshold.toFixed(2)}`;
+    return {
+      id: 'n' + (++uid), leaf: false, feature: best.feature, threshold: best.threshold,
+      condition: leftLabel, n: c.n, counts: { 1: c.yes, 0: c.no },
+      H: entropyNumeric(rows), G, score: best.score, path: path.slice(),
+      labelType: 'numeric', kind: 'numeric',
+      children: [
+        { label: leftLabel, node: buildNumericCart(best.left, maxDepth, depth + 1, path.concat(leftLabel), minLeaf) },
+        { label: rightLabel, node: buildNumericCart(best.right, maxDepth, depth + 1, path.concat(rightLabel), minLeaf) }
+      ]
+    };
+  }
+  function predictNumeric(node, row){
+    let cur = node;
+    while (!cur.leaf) cur = row[cur.feature] <= cur.threshold ? cur.children[0].node : cur.children[1].node;
+    return cur.label;
+  }
+  function accuracyNumeric(node, rows){
+    if (!rows.length) return 0;
+    return rows.filter(r => predictNumeric(node, r) === r.label).length / rows.length;
+  }
+  function treeShape(node){
+    if (node.leaf) return { nodes: 1, leaves: 1, depth: 0 };
+    let nodes = 1, leaves = 0, depth = 0;
+    node.children.forEach(c => {
+      const s = treeShape(c.node);
+      nodes += s.nodes; leaves += s.leaves; depth = Math.max(depth, s.depth + 1);
+    });
+    return { nodes, leaves, depth };
+  }
+  /* ---------------- compact offline TeX renderer (TeX-Lite) ----------------
+     Supports the small LaTeX subset used on this page: fractions, sums,
+     sub/superscripts, Greek letters, text blocks and common operators.
+     It is deliberately not a general-purpose TeX engine. */
+  const GREEK = {
+    alpha:'α', beta:'β', gamma:'γ', delta:'δ', epsilon:'ε', varepsilon:'ε',
+    zeta:'ζ', eta:'η', theta:'θ', lambda:'λ', mu:'μ', nu:'ν', xi:'ξ',
+    pi:'π', rho:'ρ', sigma:'σ', tau:'τ', phi:'φ', chi:'χ', psi:'ψ', omega:'ω',
+    Gamma:'Γ', Delta:'Δ', Theta:'Θ', Lambda:'Λ', Pi:'Π', Sigma:'Σ', Phi:'Φ', Psi:'Ψ', Omega:'Ω'
+  };
+  function renderTeX(source){
+    let i = 0;
+    const src = String(source || '');
+    function readRawGroup(){
+      while (src[i] === ' ') i++;
+      if (src[i] === '{') {
+        i++;
+        let depth = 1;
+        const start = i;
+        while (i < src.length && depth > 0) {
+          if (src[i] === '{') depth++;
+          else if (src[i] === '}') depth--;
+          if (depth > 0) i++;
+        }
+        const raw = src.slice(start, i);
+        if (src[i] === '}') i++;
+        return raw;
+      }
+      if (src[i] === '\\') {
+        const start = i++;
+        if (/[A-Za-z]/.test(src[i] || '')) {
+          while (/[A-Za-z]/.test(src[i] || '')) i++;
+        } else {
+          i++;
+        }
+        return src.slice(start, i);
+      }
+      return src[i++] || '';
+    }
+    function parseGroup(){
+      while (src[i] === ' ') i++;
+      if (src[i] === '{') {
+        i++;
+        const out = parseUntil('}');
+        if (src[i] === '}') i++;
+        return out;
+      }
+      return parseToken();
+    }
+    function opWithLimits(symbol, cls){
+      let sub = '', sup = '';
+      while (src[i] === '_' || src[i] === '^') {
+        const mark = src[i++];
+        const value = parseGroup();
+        if (mark === '_') sub = value;
+        else sup = value;
+      }
+      return `<span class="${cls}">${sup ? `<span class="lim sup">${sup}</span>` : ''}<span class="sig">${symbol}</span>${sub ? `<span class="lim low">${sub}</span>` : ''}</span>`;
+    }
+    function parseCommand(){
+      let name = '';
+      if (/[A-Za-z]/.test(src[i] || '')) {
+        while (/[A-Za-z]/.test(src[i] || '')) name += src[i++];
+      } else {
+        name = src[i++] || '';
+      }
+      if (name === 'frac') {
+        const a = parseGroup();
+        const b = parseGroup();
+        return `<span class="frac"><span class="num">${a}</span><span class="den">${b}</span></span>`;
+      }
+      if (name === 'sum') return opWithLimits('∑', 'sumop');
+      if (name === 'prod') return opWithLimits('∏', 'sumop');
+      if (name === 'log') {
+        let sub = '';
+        if (src[i] === '_') { i++; sub = parseGroup(); }
+        return `<span class="roman">log</span>${sub ? `<sub>${sub}</sub>` : ''}`;
+      }
+      if (['max','min','arg','sin','cos','exp'].includes(name)) return `<span class="roman">${name}</span>`;
+      if (name === 'text' || name === 'mathrm' || name === 'operatorname' || name === 'mathbf') {
+        const raw = readRawGroup();
+        return `<span class="${name === 'text' ? 'text' : 'roman'}">${esc(raw.replace(/\\_/g, '_'))}</span>`;
+      }
+      if (name === 'hat') return `<span class="hat">${parseGroup()}</span>`;
+      if (name === 'overline') return `<span style="border-top:1px solid currentColor;padding-top:.05em">${parseGroup()}</span>`;
+      if (name === 'left' || name === 'right') return '';
+      if (name === 'mid') return '<span style="margin:0 .16em">|</span>';
+      if (name === 'cdot') return '<span style="margin:0 .18em">·</span>';
+      if (name === 'times') return '<span style="margin:0 .18em">×</span>';
+      if (name === 'pm') return '<span style="margin:0 .16em">±</span>';
+      if (name === 'le' || name === 'leq') return '<span style="margin:0 .16em">≤</span>';
+      if (name === 'ge' || name === 'geq') return '<span style="margin:0 .16em">≥</span>';
+      if (name === 'ne' || name === 'neq') return '<span style="margin:0 .16em">≠</span>';
+      if (name === 'approx') return '<span style="margin:0 .16em">≈</span>';
+      if (name === 'in') return '<span style="margin:0 .16em">∈</span>';
+      if (name === 'to' || name === 'rightarrow') return '<span style="margin:0 .16em">→</span>';
+      if (name === 'infty') return '∞';
+      if (name === 'partial') return '∂';
+      if (name === 'cup') return '<span style="margin:0 .14em">∪</span>';
+      if (name === 'cdots') return '<span class="roman">⋯</span>';
+      if (name === 'quad') return '<span style="display:inline-block;width:.7em"></span>';
+      if (name === 'qquad') return '<span style="display:inline-block;width:1.4em"></span>';
+      if (name === ',') return '<span style="display:inline-block;width:.12em"></span>';
+      if (name === ';') return '<span style="display:inline-block;width:.22em"></span>';
+      if (name === ':') return '<span style="display:inline-block;width:.16em"></span>';
+      if (name === ' ') return '<span style="display:inline-block;width:.28em"></span>';
+      if (name === '_') return '_';
+      if (name === '%') return '%';
+      if (name === '{' || name === '}') return name;
+      if (GREEK[name]) return `<span class="roman">${GREEK[name]}</span>`;
+      return `<span class="roman">${esc(name)}</span>`;
+    }
+    function parseToken(){
+      if (i >= src.length) return '';
+      const ch = src[i++];
+      if (ch === '\\') return parseCommand();
+      if (ch === '^') return `<sup>${parseGroup()}</sup>`;
+      if (ch === '_') return `<sub>${parseGroup()}</sub>`;
+      if (ch === '{') {
+        const out = parseUntil('}');
+        if (src[i] === '}') i++;
+        return out;
+      }
+      if (ch === '}') return '';
+      if (ch === ' ') return ' ';
+      if (ch === '-') return '<span style="margin:0 .08em">−</span>';
+      if (/[A-Za-z]/.test(ch)) return `<i>${ch}</i>`;
+      return esc(ch);
+    }
+    function parseUntil(stop){
+      let out = '';
+      while (i < src.length && src[i] !== stop) out += parseToken();
+      return out;
+    }
+    return parseUntil(null);
+  }
+  function renderAllTeX(){
+    $$('[data-tex]').forEach(el => {
+      const source = el.getAttribute('data-tex');
+      try {
+        el.setAttribute('aria-label', source);
+        el.setAttribute('title', source);
+        el.innerHTML = renderTeX(source);
+      } catch (err) {
+        el.textContent = source;
+      }
+    });
+  }
+  /* ---------------- shared tree rendering + node inspector ---------------- */
+  const nodeRegistry = new Map();
+  const nodeDialog = $('#nodeDialog');
+  const nodeDialogBody = $('#nodeDialogBody');
+  const nodeDialogTitle = $('#nodeDialogTitle');
+
+  function nodeClass(node, extra = ''){
+    if (node.leaf) {
+      const isYes = node.label === 'Yes' || node.label === 1 || node.label === '1';
+      return `tree-node ${isYes ? 'leaf-yes' : 'leaf-no'} ${extra}`.trim();
+    }
+    return `tree-node ${extra}`.trim();
+  }
+  function nodeGroup(node, x, y, width, height, main, sub, extra = ''){
+    const cls = nodeClass(node, extra);
+    const aria = `${node.leaf ? '叶节点' : '内部节点'} ${main}，样本数 ${node.n}，按回车查看详情`;
+    return `<g class="${cls}" data-node-id="${node.id}" tabindex="0" role="button" aria-label="${esc(aria)}">
+      <rect class="node-focus-ring" x="${x - width / 2 - 3}" y="${y - 3}" width="${width + 6}" height="${height + 6}" rx="1"></rect>
+      <rect class="node-box ${node.leaf ? (nodeClass(node).includes('leaf-yes') ? 'yes' : 'no') : 'internal'} ${extra.includes('active') ? 'active' : ''} ${extra.includes('pending') ? 'pending' : ''}" x="${x - width / 2}" y="${y}" width="${width}" height="${height}" rx="1"></rect>
+      <text class="node-main" x="${x}" y="${y + 20}">${esc(main)}</text>
+      <text class="node-sub" x="${x}" y="${y + 36}">${esc(sub)}</text>
+    </g>`;
+  }
+  function edgePath(x1, y1, x2, y2){
+    const mid = (y1 + y2) / 2;
+    return `M${x1} ${y1} C${x1} ${mid},${x2} ${mid},${x2} ${y2}`;
+  }
+  function edgeLabelMarkup(x1, y1, x2, y2, label){
+    const x = (x1 + x2) / 2;
+    const y = (y1 + y2) / 2 + 3;
+    return `<text class="edge-label" x="${x}" y="${y}">${esc(label)}</text>`;
+  }
+
+  function renderGenericTree(svg, root, opts = {}){
+    const nodeWidth = opts.nodeWidth || 132;
+    const nodeHeight = opts.nodeHeight || 46;
+    const xGap = opts.xGap || 148;
+    const yGap = opts.yGap || 86;
+    const padding = opts.padding || 30;
+    const minWidth = opts.minWidth || 760;
+    const showEdgeLabels = opts.showEdgeLabels !== false;
+    let leafCount = 0;
+    let maxDepth = 0;
+
+    function measure(node, depth){
+      maxDepth = Math.max(maxDepth, depth);
+      if (node.leaf) {
+        node._leaves = 1;
+        leafCount += 1;
+        return 1;
+      }
+      node._leaves = node.children.reduce((sum, c) => sum + measure(c.node, depth + 1), 0);
+      return node._leaves;
+    }
+    measure(root, 0);
+    const usable = Math.max(1, leafCount) * xGap;
+    const width = Math.max(minWidth, usable + padding * 2);
+    const height = (maxDepth + 1) * yGap + padding * 2 + 12;
+    const xOffset = (width - usable) / 2;
+
+    function place(node, depth, left){
+      node._depth = depth;
+      if (node.leaf) {
+        node._x = xOffset + (left + 0.5) * xGap;
+        node._y = padding + depth * yGap;
+        return;
+      }
+      let cursor = left;
+      node.children.forEach(child => {
+        place(child.node, depth + 1, cursor);
+        cursor += child.node._leaves;
+      });
+      node._x = (node.children[0].node._x + node.children[node.children.length - 1].node._x) / 2;
+      node._y = padding + depth * yGap;
+    }
+    place(root, 0, 0);
+
+    const edges = [];
+    const nodes = [];
+    function emit(node){
+      nodeRegistry.set(node.id, node);
+      if (!node.leaf) {
+        node.children.forEach(child => {
+          const c = child.node;
+          edges.push(`<path class="tree-edge" d="${edgePath(node._x, node._y + nodeHeight, c._x, c._y)}"></path>`);
+          if (showEdgeLabels && child.label) edges.push(edgeLabelMarkup(node._x, node._y + nodeHeight, c._x, c._y, child.label));
+          emit(c);
+        });
+      }
+      let main, sub;
+      if (node.leaf) {
+        main = String(node.label);
+        sub = `n = ${node.n}`;
+      } else if (node.kind === 'numeric') {
+        main = node.condition;
+        sub = `ΔGini ${fmt(node.score, 3)}`;
+      } else if (node.algorithm === 'cart') {
+        main = node.condition;
+        sub = `ΔGini ${fmt(node.score, 4)}`;
+      } else if (node.algorithm === 'c45') {
+        main = node.feature;
+        sub = `Ratio ${fmt(node.score, 4)}`;
+      } else {
+        main = node.feature;
+        sub = `Gain ${fmt(node.score, 4)}`;
+      }
+      nodes.push(nodeGroup(node, node._x, node._y, nodeWidth, nodeHeight, main, sub));
+    }
+    emit(root);
+    svg.setAttribute('viewBox', `0 0 ${width} ${height}`);
+    svg.setAttribute('width', width);
+    svg.setAttribute('height', height);
+    svg.style.width = width + 'px';
+    svg.style.height = 'auto';
+    svg.innerHTML = edges.join('') + nodes.join('');
+    svg.querySelectorAll('[data-node-id]').forEach(g => {
+      const node = nodeRegistry.get(g.getAttribute('data-node-id'));
+      const open = (e) => { e.preventDefault(); openNodeDialog(node); };
+      g.addEventListener('click', open);
+      g.addEventListener('keydown', e => {
+        if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); openNodeDialog(node); }
+      });
+    });
+    return { width, height, leaves: leafCount, depth: maxDepth };
+  }
+  function openNodeDialog(node){
+    if (!node) return;
+    const path = node.path && node.path.length ? node.path.join(' → ') : '根节点 / ROOT';
+    let countLine = '';
+    if (node.labelType === 'numeric') {
+      countLine = `1 = ${node.counts[1]} / 0 = ${node.counts[0]}`;
+    } else {
+      countLine = `Yes = ${node.counts.Yes} / No = ${node.counts.No}`;
+    }
+    let criterion = '';
+    if (!node.leaf) {
+      if (node.algorithm === 'id3') criterion = `信息增益 Gain = ${fmt(node.score)}`;
+      else if (node.algorithm === 'c45') criterion = `增益率 Ratio = ${fmt(node.score)}（Gain = ${fmt(node.gain)}，IV = ${fmt(node.iv)}）`;
+      else if (node.kind === 'numeric') criterion = `Gini 减少量 ΔGini = ${fmt(node.score)}`;
+      else criterion = `Gini 减少量 ΔGini = ${fmt(node.score)}`;
+    } else {
+      criterion = `叶节点输出：${String(node.label)}`;
+    }
+    nodeDialogTitle.textContent = node.leaf ? `叶节点 · ${String(node.label)}` : (node.condition || node.feature || '内部节点');
+    nodeDialogBody.innerHTML = `
+      <div class="dialog-path">${esc(path)}</div>
+      <div class="dialog-stats">
+        <div><span>样本数 n</span><strong>${node.n}</strong></div>
+        <div><span>类别分布</span><strong>${esc(countLine)}</strong></div>
+        <div><span>信息熵 H</span><strong>${fmt(node.H)} bit</strong></div>
+        <div><span>基尼 Gini</span><strong>${fmt(node.G)}</strong></div>
+        <div><span>叶节点</span><strong>${node.leaf ? '是' : '否'}</strong></div>
+        <div><span>当前指标</span><strong>${esc(criterion)}</strong></div>
+      </div>
+      <p class="dialog-note"><strong>读法：</strong>熵与 Gini 只描述当前节点内的类别不纯度；内部节点的“当前指标”是该节点被选中时带来的不纯度下降。它们不能单独证明模型会泛化，还需要结合验证集与模型复杂度。</p>
+    `;
+    if (typeof nodeDialog.showModal === 'function') {
+      if (!nodeDialog.open) nodeDialog.showModal();
+    } else {
+      nodeDialog.setAttribute('open', '');
+    }
+  }
+  if (nodeDialog) {
+    nodeDialog.addEventListener('click', (e) => {
+      if (e.target === nodeDialog) {
+        const rect = nodeDialog.getBoundingClientRect();
+        const inside = e.clientX >= rect.left && e.clientX <= rect.right && e.clientY >= rect.top && e.clientY <= rect.bottom;
+        if (!inside) nodeDialog.close();
+      }
+    });
+  }
+  /* ---------------- experiment 1: purity simulator ---------------- */
+  const purityRange = $('#purityRange');
+  const purityPercent = $('#purityPercent');
+  const purityCounts = $('#purityCounts');
+  const purityDots = $('#purityDots');
+  const purityCurve = $('#purityCurve');
+  const purityP = $('#purityP');
+  const purityH = $('#purityH');
+  const purityG = $('#purityG');
+  const purityMajority = $('#purityMajority');
+  const sampleOrder = (() => {
+    const order = Array.from({ length: 60 }, (_, i) => i);
+    let seed = 24681357;
+    const rand = () => { seed = (Math.imul(seed, 1664525) + 1013904223) >>> 0; return seed / 4294967296; };
+    for (let i = order.length - 1; i > 0; i--) {
+      const j = Math.floor(rand() * (i + 1));
+      [order[i], order[j]] = [order[j], order[i]];
+    }
+    return order;
+  })();
+  function binaryEntropy(p){
+    if (p <= 0 || p >= 1) return 0;
+    return -(p * log2(p) + (1 - p) * log2(1 - p));
+  }
+  function initPurityDots(){
+    let out = '<rect class="frame" x="8" y="8" width="344" height="214"></rect>';
+    for (let n = 0; n < 60; n++) {
+      const col = n % 12;
+      const row = Math.floor(n / 12);
+      out += `<circle class="dot no" data-sample="${n}" cx="${27 + col * 27.5}" cy="${35 + row * 39}" r="7.2"></circle>`;
+    }
+    purityDots.innerHTML = out;
+  }
+  function renderPurityChart(p){
+    const H = binaryEntropy(p);
+    const G = 2 * p * (1 - p);
+    const left = 52, right = 492, top = 24, bottom = 268;
+    const x = left + p * (right - left);
+    const yH = bottom - H * (bottom - top);
+    const yG = bottom - G * (bottom - top);
+    const pathFor = (fn) => {
+      const pts = [];
+      for (let i = 0; i <= 120; i++) {
+        const q = i / 120;
+        pts.push(`${left + q * (right - left)},${bottom - fn(q) * (bottom - top)}`);
+      }
+      return 'M' + pts.join(' L');
+    };
+    const grid = [];
+    for (let i = 0; i <= 4; i++) {
+      const q = i / 4;
+      const yy = bottom - q * (bottom - top);
+      grid.push(`<line class="grid" x1="${left}" y1="${yy}" x2="${right}" y2="${yy}"></line>`);
+      grid.push(`<text class="tick" x="${left - 9}" y="${yy + 3}" text-anchor="end">${q.toFixed(2)}</text>`);
+      const xx = left + q * (right - left);
+      grid.push(`<line class="grid" x1="${xx}" y1="${top}" x2="${xx}" y2="${bottom}"></line>`);
+      grid.push(`<text class="tick" x="${xx}" y="${bottom + 18}" text-anchor="middle">${q.toFixed(2)}</text>`);
+    }
+    const hTagX = Math.min(right - 8, x + 8);
+    const hTagY = Math.max(15, yH - 10);
+    const gTagY = Math.min(bottom - 4, yG + 17);
+    purityCurve.innerHTML = `
+      ${grid.join('')}
+      <line class="axis" x1="${left}" y1="${top}" x2="${left}" y2="${bottom}"></line>
+      <line class="axis" x1="${left}" y1="${bottom}" x2="${right}" y2="${bottom}"></line>
+      <path class="curve-h" d="${pathFor(binaryEntropy)}"></path>
+      <path class="curve-g" d="${pathFor(q => 2 * q * (1 - q))}"></path>
+      <line class="cursor" x1="${x}" y1="${top}" x2="${x}" y2="${bottom}"></line>
+      <circle class="point-h" cx="${x}" cy="${yH}" r="5"></circle>
+      <circle class="point-g" cx="${x}" cy="${yG}" r="5"></circle>
+      <text class="tag" x="${hTagX}" y="${hTagY}" text-anchor="${hTagX > right - 95 ? 'end' : 'start'}">H ${H.toFixed(3)}</text>
+      <text class="tag" x="${hTagX}" y="${gTagY}" text-anchor="${hTagX > right - 95 ? 'end' : 'start'}">G ${G.toFixed(3)}</text>
+      <text class="axis-label" x="${(left + right) / 2}" y="304" text-anchor="middle">正类占比 p</text>
+      <text class="axis-label" x="13" y="${(top + bottom) / 2}" text-anchor="middle" transform="rotate(-90 13 ${(top + bottom) / 2})">不纯度</text>
+      <text class="tick" x="${right - 4}" y="${top + 14}" text-anchor="end" fill="var(--blue)">H(p)</text>
+      <text class="tick" x="${right - 4}" y="${top + 28}" text-anchor="end" fill="var(--green-deep)">Gini(p)</text>
+    `;
+  }
+  function updatePurity(){
+    const value = Number(purityRange.value);
+    const p = value / 100;
+    const positive = Math.round(p * 60);
+    const negative = 60 - positive;
+    const H = binaryEntropy(p);
+    const G = 2 * p * (1 - p);
+    purityPercent.textContent = `${value}%`;
+    purityCounts.textContent = `${positive} red · ${negative} blue`;
+    purityP.textContent = p.toFixed(3);
+    purityH.textContent = H.toFixed(4);
+    purityG.textContent = G.toFixed(4);
+    purityMajority.textContent = Math.max(p, 1 - p).toFixed(3);
+    const dots = purityDots.querySelectorAll('.dot');
+    dots.forEach(dot => {
+      const order = sampleOrder[Number(dot.getAttribute('data-sample'))];
+      dot.setAttribute('class', `dot ${order < positive ? 'yes' : 'no'}`);
+    });
+    renderPurityChart(p);
+  }
+  initPurityDots();
+  purityRange.addEventListener('input', updatePurity);
+  updatePurity();
+  /* ---------------- experiment 01B: high-cardinality bias lab ---------------- */
+  const biasToggle = $('#biasToggle');
+  const biasPanels = $('#biasPanels');
+  const biasId3 = $('#biasId3');
+  const biasC45 = $('#biasC45');
+  const biasGap = $('#biasGap');
+  const biasNote = $('#biasNote');
+  const biasBaseMetrics = PLAY_FEATURES.map(feature => ({ name: feature, ...featureMetrics(PLAY_ROWS, feature) }));
+  const biasIdMetric = (() => {
+    const gain = entropyRows(PLAY_ROWS);
+    const iv = log2(PLAY_ROWS.length);
+    return { name: 'RowID', gain, iv, ratio: gain / iv };
+  })();
+
+  function renderBiasLab(){
+    const withId = biasToggle.checked;
+    const rows = withId ? biasBaseMetrics.concat([biasIdMetric]) : biasBaseMetrics;
+    const maxGain = Math.max(...rows.map(r => r.gain));
+    const maxRatio = Math.max(...rows.map(r => r.ratio));
+    const id3Pick = rows.reduce((best, r) => r.gain > best.gain ? r : best, rows[0]);
+    const c45Pick = rows.reduce((best, r) => r.ratio > best.ratio ? r : best, rows[0]);
+    const rowMarkup = (values, mode, selected) => values.map(r => {
+      const value = mode === 'gain' ? r.gain : r.ratio;
+      const max = mode === 'gain' ? maxGain : maxRatio;
+      return `<div class="bias-row ${mode} ${r.name === selected.name ? 'selected' : ''} ${r.name === 'RowID' ? 'id-row' : ''}">
+        <span class="name">${esc(r.name)}</span>
+        <span class="track" aria-hidden="true"><span style="width:${(value / max * 100).toFixed(2)}%"></span></span>
+        <span class="val">${fmt(value, 4)}</span>
+      </div>`;
+    }).join('');
+    biasPanels.innerHTML = `
+      <div class="bias-panel"><h4><b>ID3</b> / 信息增益 Gain</h4>${rowMarkup(rows, 'gain', id3Pick)}</div>
+      <div class="bias-panel"><h4><b>C4.5</b> / 增益率 Ratio</h4>${rowMarkup(rows, 'ratio', c45Pick)}</div>
+    `;
+    biasId3.textContent = id3Pick.name;
+    biasC45.textContent = c45Pick.name;
+    if (withId) {
+      const gainGap = biasIdMetric.gain - Math.max(...biasBaseMetrics.map(r => r.gain));
+      const ratioGap = biasIdMetric.ratio - Math.max(...biasBaseMetrics.map(r => r.ratio));
+      biasGap.textContent = `+${fmt(gainGap, 3)} / +${fmt(ratioGap, 3)}`;
+      biasNote.innerHTML = `打开 RowID 后，ID3 与 C4.5 <strong>都仍可能选择编号</strong>。增益率把编号相对 Outlook 的优势从 ${fmt(gainGap, 3)} 压到 ${fmt(ratioGap, 3)}，但它不是万能解药。极端多取值特征仍需通过去重、特征工程、验证集和正则化约束来处理。`;
+    } else {
+      biasGap.textContent = '未启用';
+      biasNote.innerHTML = `关闭 RowID 时，ID3 与 C4.5 都选择 Outlook。打开 RowID 后观察：C4.5 的增益率会惩罚“把样本切碎”的特征，但在这种极端唯一编号场景里，惩罚并不保证改变最终选择。`;
+    }
+  }
+  biasToggle.addEventListener('change', renderBiasLab);
+  renderBiasLab();
+
+  /* ---------------- experiment 2: step-by-step ID3 growth ---------------- */
+  const growthRoot = buildId3(PLAY_ROWS, PLAY_FEATURES, 'id3');
+  const growthSunny = growthRoot.children.find(c => c.label === 'Sunny').node;
+  const growthOvercast = growthRoot.children.find(c => c.label === 'Overcast').node;
+  const growthRain = growthRoot.children.find(c => c.label === 'Rain').node;
+  const growthTree = $('#growthTree');
+  const growthViewport = $('#growthViewport');
+  const growthStepLabel = $('#growthStepLabel');
+  const growthStepCopy = $('#growthStepCopy');
+  const growthNext = $('#growthNext');
+  const growthReset = $('#growthReset');
+  let growthStep = 0;
+
+  function registerTree(node){
+    nodeRegistry.set(node.id, node);
+    if (!node.leaf) node.children.forEach(c => registerTree(c.node));
+  }
+  registerTree(growthRoot);
+
+  const growthCopy = [
+    `<strong>第 0 步：先看根节点的数据。</strong>14 个样本中 9 个 Yes、5 个 No，信息熵为 0.9403 bit。ID3 会比较四个特征的信息增益，选择当前增益最大的那个。<span class="mini">点击根节点可查看样本分布；点击“下一步”执行第一次分裂。</span>`,
+    `<strong>第 1 步：Outlook 胜出。</strong>天气的信息增益为 0.2467，高于湿度 0.1518、刮风 0.0481、温度 0.0292。根节点按 Sunny / Overcast / Rain 分为三支；Overcast 子集 4 个样本全是 Yes，立即成为叶节点。<span class="mini">Sunny 与 Rain 还不纯，继续递归。</span>`,
+    `<strong>第 2 步：分裂 Sunny 子集。</strong>Sunny 中 2 个 Yes、3 个 No，熵为 0.9710 bit。当前可用特征里，Humidity 的信息增益为 0.9710：High 的 3 个样本全为 No，Normal 的 2 个样本全为 Yes。<span class="mini">于是 Sunny 下面挂一个湿度节点。</span>`,
+    `<strong>第 3 步：分裂 Rain 子集。</strong>Rain 中 3 个 Yes、2 个 No，熵为 0.9710 bit。Wind 的信息增益为 0.9710：Weak 的 3 个样本全为 Yes，Strong 的 2 个样本全为 No。<span class="mini">Rain 下面挂一个风力节点。</span>`,
+    `<strong>完成：所有叶节点都纯。</strong>ID3 停止生长。最终树有 3 个内部节点和 5 个叶节点。它完全分开了训练集，但 ID3 原生没有剪枝；如果数据有噪声或样本很少，这样的完全生长仍可能过拟合。<span class="mini">可以点击“重来”回到根节点，或点击任意节点查看统计。</span>`
+  ];
+
+  function renderGrowthTree(){
+    const parts = [];
+    // Root
+    const rootMain = growthStep === 0 ? 'D · 14' : 'Outlook';
+    const rootSub = growthStep === 0 ? 'H 0.940 · 9 Yes' : 'Gain 0.2467';
+    parts.push(nodeGroup(growthRoot, 380, 30, 132, 48, rootMain, rootSub, growthStep === 1 ? 'active' : ''));
+    if (growthStep >= 1) {
+      [['Sunny', growthSunny, 140], ['Overcast', growthOvercast, 380], ['Rain', growthRain, 620]].forEach(([label, node, x]) => {
+        parts.push(`<path class="tree-edge" d="${edgePath(380, 78, x, 145)}"></path>`);
+        parts.push(edgeLabelMarkup(380, 78, x, 145, label));
+      });
+      parts.push(nodeGroup(growthOvercast, 380, 145, 126, 46, 'Yes', 'n = 4'));
+      if (growthStep >= 2) {
+        parts.push(nodeGroup(growthSunny, 140, 145, 126, 46, 'Humidity', 'Gain 0.9710', growthStep === 2 ? 'active' : ''));
+        const high = growthSunny.children.find(c => c.label === 'High').node;
+        const normal = growthSunny.children.find(c => c.label === 'Normal').node;
+        parts.push(`<path class="tree-edge" d="${edgePath(140, 191, 88, 260)}"></path>`);
+        parts.push(`<path class="tree-edge" d="${edgePath(140, 191, 192, 260)}"></path>`);
+        parts.push(edgeLabelMarkup(140, 191, 88, 260, 'High'));
+        parts.push(edgeLabelMarkup(140, 191, 192, 260, 'Normal'));
+        parts.push(nodeGroup(high, 88, 260, 98, 42, 'No', 'n = 3'));
+        parts.push(nodeGroup(normal, 192, 260, 98, 42, 'Yes', 'n = 2'));
+      } else {
+        parts.push(nodeGroup(growthSunny, 140, 145, 126, 46, 'Sunny', 'n = 5 · H 0.971', 'pending'));
+      }
+      if (growthStep >= 3) {
+        parts.push(nodeGroup(growthRain, 620, 145, 126, 46, 'Wind', 'Gain 0.9710', growthStep === 3 ? 'active' : ''));
+        const weak = growthRain.children.find(c => c.label === 'Weak').node;
+        const strong = growthRain.children.find(c => c.label === 'Strong').node;
+        parts.push(`<path class="tree-edge" d="${edgePath(620, 191, 568, 260)}"></path>`);
+        parts.push(`<path class="tree-edge" d="${edgePath(620, 191, 672, 260)}"></path>`);
+        parts.push(edgeLabelMarkup(620, 191, 568, 260, 'Weak'));
+        parts.push(edgeLabelMarkup(620, 191, 672, 260, 'Strong'));
+        parts.push(nodeGroup(weak, 568, 260, 98, 42, 'Yes', 'n = 3'));
+        parts.push(nodeGroup(strong, 672, 260, 98, 42, 'No', 'n = 2'));
+      } else {
+        parts.push(nodeGroup(growthRain, 620, 145, 126, 46, 'Rain', 'n = 5 · H 0.971', 'pending'));
+      }
+    }
+    const width = 760, height = 330;
+    growthTree.setAttribute('viewBox', `0 0 ${width} ${height}`);
+    growthTree.innerHTML = parts.join('');
+    growthTree.querySelectorAll('[data-node-id]').forEach(g => {
+      const node = nodeRegistry.get(g.getAttribute('data-node-id'));
+      g.addEventListener('click', () => openNodeDialog(node));
+      g.addEventListener('keydown', e => {
+        if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); openNodeDialog(node); }
+      });
+    });
+    growthStepLabel.textContent = `STEP ${growthStep} / 4 · ${['根节点','根分裂','Sunny 分支','Rain 分支','完成'][growthStep]}`;
+    growthStepCopy.innerHTML = growthCopy[growthStep];
+    growthNext.disabled = growthStep >= 4;
+    growthNext.textContent = growthStep >= 4 ? '已完成' : '下一步 →';
+    requestAnimationFrame(() => {
+      growthViewport.scrollLeft = Math.max(0, (growthTree.clientWidth - growthViewport.clientWidth) / 2);
+    });
+  }
+  growthNext.addEventListener('click', () => {
+    if (growthStep < 4) { growthStep += 1; renderGrowthTree(); }
+  });
+  growthReset.addEventListener('click', () => { growthStep = 0; renderGrowthTree(); });
+  renderGrowthTree();
+  /* ---------------- experiment 00: prediction path tracer ---------------- */
+  const pathOutlook = $('#pathOutlook');
+  const pathHumidity = $('#pathHumidity');
+  const pathWind = $('#pathWind');
+  const pathTree = $('#pathTree');
+  const pathPred = $('#pathPred');
+  const pathRule = $('#pathRule');
+  const pathPath = $('#pathPath');
+  const pathOutcome = $('#pathOutcome');
+  const pathHumidityNode = growthSunny;
+  const pathWindNode = growthRain;
+  const pathSunnyHigh = growthSunny.children.find(c => c.label === 'High').node;
+  const pathSunnyNormal = growthSunny.children.find(c => c.label === 'Normal').node;
+  const pathRainWeak = growthRain.children.find(c => c.label === 'Weak').node;
+  const pathRainStrong = growthRain.children.find(c => c.label === 'Strong').node;
+
+  function pathState(){
+    return { Outlook: pathOutlook.value, Humidity: pathHumidity.value, Wind: pathWind.value };
+  }
+  function tracePath(){
+    const state = pathState();
+    const nodes = [growthRoot];
+    const edges = [];
+    let cur = growthRoot;
+    while (!cur.leaf) {
+      const child = cur.children.find(c => c.label === state[cur.feature]);
+      if (!child) break;
+      edges.push({ parent: cur, child: child.node, label: child.label });
+      cur = child.node;
+      nodes.push(cur);
+    }
+    return { state, nodes, edges, leaf: cur };
+  }
+  function pathRuleText(state, leaf){
+    const parts = ['Outlook = ' + state.Outlook];
+    if (state.Outlook === 'Sunny') parts.push('Humidity = ' + state.Humidity);
+    if (state.Outlook === 'Rain') parts.push('Wind = ' + state.Wind);
+    return 'IF ' + parts.join(' AND ') + ' THEN ' + leaf.label;
+  }
+  function renderPathTrace(){
+    const trace = tracePath();
+    const pathIds = new Set(trace.nodes.map(n => n.id));
+    const pathEdges = new Set(trace.edges.map(e => `${e.parent.id}>${e.child.id}`));
+    const positions = new Map([
+      [growthRoot.id, { x: 380, y: 30, w: 132, h: 48, main: 'Outlook', sub: 'Gain 0.2467' }],
+      [growthSunny.id, { x: 130, y: 145, w: 126, h: 46, main: 'Humidity', sub: 'Gain 0.9710' }],
+      [growthOvercast.id, { x: 380, y: 145, w: 126, h: 46, main: 'Yes', sub: 'n = 4' }],
+      [growthRain.id, { x: 630, y: 145, w: 126, h: 46, main: 'Wind', sub: 'Gain 0.9710' }],
+      [pathSunnyHigh.id, { x: 70, y: 270, w: 100, h: 42, main: 'No', sub: 'n = 3' }],
+      [pathSunnyNormal.id, { x: 190, y: 270, w: 100, h: 42, main: 'Yes', sub: 'n = 2' }],
+      [pathRainWeak.id, { x: 570, y: 270, w: 100, h: 42, main: 'Yes', sub: 'n = 3' }],
+      [pathRainStrong.id, { x: 690, y: 270, w: 100, h: 42, main: 'No', sub: 'n = 2' }]
+    ]);
+    const allEdges = [
+      [growthRoot, growthSunny, 'Sunny'], [growthRoot, growthOvercast, 'Overcast'], [growthRoot, growthRain, 'Rain'],
+      [growthSunny, pathSunnyHigh, 'High'], [growthSunny, pathSunnyNormal, 'Normal'],
+      [growthRain, pathRainWeak, 'Weak'], [growthRain, pathRainStrong, 'Strong']
+    ];
+    const edgeMarkup = allEdges.map(([from, to, label]) => {
+      const A = positions.get(from.id), B = positions.get(to.id);
+      const onPath = pathEdges.has(`${from.id}>${to.id}`);
+      return `<path class="tree-edge ${onPath ? 'path-edge' : 'path-edge-muted'}" d="${edgePath(A.x, A.y + A.h, B.x, B.y)}"></path>` +
+        edgeLabelMarkup(A.x, A.y + A.h, B.x, B.y, label);
+    }).join('');
+    let nodeMarkup = '';
+    trace.nodes.concat([]); // keeps the path set explicit for readers
+    positions.forEach((pos, id) => {
+      const node = nodeRegistry.get(id);
+      if (!node) return;
+      nodeMarkup += nodeGroup(node, pos.x, pos.y, pos.w, pos.h, pos.main, pos.sub, pathIds.has(id) ? 'path-hit' : '');
+    });
+    pathTree.setAttribute('viewBox', '0 0 760 340');
+    pathTree.innerHTML = edgeMarkup + nodeMarkup;
+    pathTree.querySelectorAll('[data-node-id]').forEach(g => {
+      const node = nodeRegistry.get(g.getAttribute('data-node-id'));
+      g.addEventListener('click', () => openNodeDialog(node));
+      g.addEventListener('keydown', e => {
+        if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); openNodeDialog(node); }
+      });
+    });
+    const leaf = trace.leaf;
+    pathPred.textContent = String(leaf.label);
+    pathRule.textContent = pathRuleText(trace.state, leaf);
+    pathOutcome.classList.toggle('no', leaf.label === 'No');
+    const steps = trace.nodes.length - 1;
+    pathPath.innerHTML = `路径：<strong>${esc(trace.nodes.map(n => n.leaf ? n.label : n.feature).join(' → '))}</strong><br>判定次数：${steps} · 叶节点 n = ${leaf.n} · H = ${fmt(leaf.H)} bit${trace.state.Outlook === 'Overcast' ? '<br>提示：Overcast 已经是纯叶节点，湿度与风力不参与这次预测。' : ''}`;
+    requestAnimationFrame(() => {
+      const shell = pathTree.parentElement;
+      shell.scrollLeft = Math.max(0, (pathTree.clientWidth - shell.clientWidth) / 2);
+    });
+  }
+  [pathOutlook, pathHumidity, pathWind].forEach(sel => sel.addEventListener('change', renderPathTrace));
+  $$('[data-path-preset]').forEach(btn => btn.addEventListener('click', () => {
+    const preset = btn.getAttribute('data-path-preset');
+    if (preset === 'sunny-high') { pathOutlook.value = 'Sunny'; pathHumidity.value = 'High'; pathWind.value = 'Weak'; }
+    if (preset === 'sunny-normal') { pathOutlook.value = 'Sunny'; pathHumidity.value = 'Normal'; pathWind.value = 'Weak'; }
+    if (preset === 'overcast') { pathOutlook.value = 'Overcast'; pathHumidity.value = 'High'; pathWind.value = 'Weak'; }
+    if (preset === 'rain-strong') { pathOutlook.value = 'Rain'; pathHumidity.value = 'Normal'; pathWind.value = 'Strong'; }
+    renderPathTrace();
+  }));
+  renderPathTrace();
+
+  /* ---------------- experiment 3: algorithm comparison ---------------- */
+  const ALGO_TREES = {
+    id3: buildId3(PLAY_ROWS, PLAY_FEATURES, 'id3'),
+    c45: buildId3(PLAY_ROWS, PLAY_FEATURES, 'c45'),
+    cart: buildCartPlay(PLAY_ROWS)
+  };
+  const algorithmSelect = $('#algorithmSelect');
+  const algorithmTree = $('#algorithmTree');
+  const algoTreeShell = $('#algoTreeShell');
+  const algoCriterion = $('#algoCriterion');
+  const algoRoot = $('#algoRoot');
+  const algoStructure = $('#algoStructure');
+  const algoCounts = $('#algoCounts');
+  const algoScore = $('#algoScore');
+  const algorithmControlNote = $('#algorithmControlNote');
+  const algorithmNarrative = $('#algorithmNarrative');
+  const rootScoreTable = $('#rootScoreTable');
+  const rootFeatureMetrics = PLAY_FEATURES.map(feature => ({ feature, ...featureMetrics(PLAY_ROWS, feature) }));
+  const rootCartMetric = bestCartFeatureScore(PLAY_ROWS, 'Outlook');
+
+  function bestCartFeatureScore(rows, feature){
+    const values = PLAY_DOMAINS[feature];
+    const limit = 1 << values.length;
+    const G = giniRows(rows);
+    let best = { score: 0, label: '—' };
+    for (let mask = 1; mask < limit - 1; mask++) {
+      if (!(mask & 1)) continue;
+      let leftValues = values.filter((v, i) => mask & (1 << i));
+      let rightValues = values.filter((v, i) => !(mask & (1 << i)));
+      if (!leftValues.length || !rightValues.length) continue;
+      let left = rows.filter(r => leftValues.includes(r[feature]));
+      let right = rows.filter(r => rightValues.includes(r[feature]));
+      if (!left.length || !right.length) continue;
+      const score = G - (left.length / rows.length * giniRows(left) + right.length / rows.length * giniRows(right));
+      // Name the smaller side in the condition so a singleton branch reads naturally.
+      if (rightValues.length < leftValues.length) {
+        [leftValues, rightValues] = [rightValues, leftValues];
+        [left, right] = [right, left];
+      }
+      const label = leftValues.length === 1 ? `${feature} = ${leftValues[0]}` : `${feature} ∈ {${leftValues.join(', ')}}`;
+      if (score > best.score + 1e-12) best = { score, label };
+    }
+    return best;
+  }
+
+  function renderRootScoreTable(algorithm, selectedFeature){
+    const head = algorithm === 'cart'
+      ? '<tr><th>特征</th><th>最佳 ΔGini</th><th>对应二叉条件</th></tr>'
+      : '<tr><th>特征</th><th>Gain</th><th>Ratio</th></tr>';
+    rootScoreTable.querySelector('thead').innerHTML = head;
+    const body = rootScoreTable.querySelector('tbody');
+    body.innerHTML = PLAY_FEATURES.map(feature => {
+      if (algorithm === 'cart') {
+        const metric = bestCartFeatureScore(PLAY_ROWS, feature);
+        return `<tr class="${feature === selectedFeature ? 'selected' : ''}"><td>${feature}</td><td class="num">${fmt(metric.score)}</td><td class="num">${esc(metric.label)}</td></tr>`;
+      }
+      const m = rootFeatureMetrics.find(x => x.feature === feature);
+      return `<tr class="${feature === selectedFeature ? 'selected' : ''}"><td>${feature}</td><td class="num">${fmt(m.gain)}</td><td class="num">${fmt(m.ratio)}</td></tr>`;
+    }).join('');
+  }
+
+  function renderAlgorithm(){
+    const algorithm = algorithmSelect.value;
+    const tree = ALGO_TREES[algorithm];
+    const shape = treeShape(tree);
+    const rootMetric = algorithm === 'cart'
+      ? { score: tree.score, label: tree.condition }
+      : rootFeatureMetrics.find(m => m.feature === tree.feature);
+    const selectedFeature = tree.feature;
+    const opts = algorithm === 'cart'
+      ? { minWidth: 760, nodeWidth: 136, xGap: 140, yGap: 84, padding: 20, showEdgeLabels: true }
+      : { minWidth: 760, nodeWidth: 132, xGap: 148, yGap: 86, padding: 30, showEdgeLabels: true };
+    renderGenericTree(algorithmTree, tree, opts);
+    algoCriterion.textContent = algorithm === 'id3' ? '信息增益' : algorithm === 'c45' ? '信息增益率' : 'Gini 减少量';
+    algoRoot.textContent = algorithm === 'cart' ? tree.condition : tree.feature;
+    algoStructure.textContent = algorithm === 'cart' ? '严格二叉树' : '多叉树';
+    algoCounts.textContent = `${shape.nodes} / ${shape.leaves}`;
+    algoScore.textContent = fmt(tree.score);
+    algorithmControlNote.textContent = algorithm === 'id3'
+      ? '根节点比较四个特征的 Gain，选择 Outlook。分支数等于该特征的取值数。'
+      : algorithm === 'c45'
+        ? '根节点先看 Gain，再用固有值 IV 归一化；本数据上仍选择 Outlook。'
+        : '根节点搜索所有二叉切分，先隔离 Outlook = Overcast，得到 4 个纯 Yes 样本。';
+    if (algorithm === 'id3') {
+      algorithmNarrative.innerHTML = `<strong>ID3 的读法：</strong>根节点按 Outlook 分成三支；Sunny 与 Rain 继续递归。最终树有 3 个内部节点、5 个叶节点。它直接优化信息增益，因此偏爱能把子集切得更纯的特征。`;
+    } else if (algorithm === 'c45') {
+      algorithmNarrative.innerHTML = `<strong>C4.5 的读法：</strong>根节点 Gain 仍为 Outlook 最高；用 <span class="tex-inline" data-tex="IV(\\mathrm{Outlook})=1.5774"></span> 归一化后，增益率约 0.1564，仍高于湿度约 0.1518。因此这棵树与 ID3 完全相同；这不是绘制错误，而是低基数离散数据上的真实结果。`;
+      renderAllTeX();
+    } else {
+      algorithmNarrative.innerHTML = `<strong>CART 的读法：</strong>根节点先问 <span class="tex-inline" data-tex="\\mathrm{Outlook}=\\mathrm{Overcast}"></span> 是否成立，把 4 个纯 Yes 样本隔离到左支；右支继续在剩余 10 个样本上做二叉切分。一个特征可以在不同节点重复使用，这是 CART 与多叉树的显著结构差异。`;
+      renderAllTeX();
+    }
+    renderRootScoreTable(algorithm, selectedFeature);
+    requestAnimationFrame(() => {
+      algoTreeShell.scrollLeft = Math.max(0, (algorithmTree.clientWidth - algoTreeShell.clientWidth) / 2);
+    });
+  }
+  algorithmSelect.addEventListener('change', renderAlgorithm);
+  renderAlgorithm();
+  /* ---------------- experiment 03B: continuous threshold lab ---------------- */
+  const THRESHOLD_POINTS = [
+    [-1.00,0],[-0.92,0],[-0.84,0],[-0.76,0],[-0.68,0],[-0.60,0],[-0.52,1],
+    [-0.44,0],[-0.36,0],[-0.28,0],[-0.20,0],[-0.12,1],[-0.04,0],
+    [0.04,1],[0.12,1],[0.20,1],[0.28,1],[0.36,0],[0.44,1],
+    [0.52,1],[0.60,0],[0.68,1],[0.80,1],[0.92,1]
+  ].map(([x, label]) => ({ x, label }));
+  const thresholdRange = $('#thresholdRange');
+  const thresholdValue = $('#thresholdValue');
+  const thresholdGini = $('#thresholdGini');
+  const thresholdGain = $('#thresholdGain');
+  const thresholdCounts = $('#thresholdCounts');
+  const thresholdError = $('#thresholdError');
+  const thresholdStatus = $('#thresholdStatus');
+  const thresholdPlot = $('#thresholdPlot');
+  const thresholdBestButton = $('#thresholdBest');
+  function giniCounts(n0, n1){
+    const n = n0 + n1;
+    if (!n) return 0;
+    return 1 - Math.pow(n0 / n, 2) - Math.pow(n1 / n, 2);
+  }
+  function thresholdMetrics(t){
+    const left = THRESHOLD_POINTS.filter(p => p.x <= t);
+    const right = THRESHOLD_POINTS.filter(p => p.x > t);
+    const yes = THRESHOLD_POINTS.filter(p => p.label === 1).length;
+    const no = THRESHOLD_POINTS.length - yes;
+    const parent = giniCounts(no, yes);
+    const leftYes = left.filter(p => p.label === 1).length;
+    const leftNo = left.length - leftYes;
+    const rightYes = right.filter(p => p.label === 1).length;
+    const rightNo = right.length - rightYes;
+    const gl = giniCounts(leftNo, leftYes);
+    const gr = giniCounts(rightNo, rightYes);
+    const weighted = (left.length * gl + right.length * gr) / THRESHOLD_POINTS.length;
+    const gain = parent - weighted;
+    const leftMaj = leftYes >= leftNo ? 1 : 0;
+    const rightMaj = rightYes >= rightNo ? 1 : 0;
+    const errors = left.filter(p => p.label !== leftMaj).length + right.filter(p => p.label !== rightMaj).length;
+    return { left, right, leftYes, leftNo, rightYes, rightNo, parent, gl, gr, gain, errors, leftMaj, rightMaj };
+  }
+  const sortedThresholdXs = Array.from(new Set(THRESHOLD_POINTS.map(p => p.x))).sort((a, b) => a - b);
+  const thresholdCandidates = sortedThresholdXs.slice(0, -1).map((x, i) => (x + sortedThresholdXs[i + 1]) / 2);
+  let bestThreshold = thresholdCandidates[0];
+  let bestThresholdGain = -Infinity;
+  thresholdCandidates.forEach(t => {
+    const m = thresholdMetrics(t);
+    if (m.gain > bestThresholdGain + 1e-12) { bestThresholdGain = m.gain; bestThreshold = t; }
+  });
+
+  function renderThresholdPlot(t){
+    const left = 54, right = 608, top = 28, bottom = 252;
+    const xFor = (v) => left + (v + 1.12) / 2.24 * (right - left);
+    const yFor = (label, i) => label === 1 ? 185 + (i % 3) * 9 : 95 + (i % 3) * 9;
+    const points = THRESHOLD_POINTS.map((p, i) => {
+      const cls = p.label === 1 ? 'point-pos' : 'point-neg';
+      return `<circle class="${cls}" cx="${xFor(p.x).toFixed(1)}" cy="${yFor(p.label, i)}" r="5"></circle>`;
+    }).join('');
+    const ticks = [-1, 0, 1].map(v => {
+      const x = xFor(v);
+      return `<line class="grid" x1="${x}" y1="${top}" x2="${x}" y2="${bottom}"></line><text class="tick" x="${x}" y="${bottom + 17}" text-anchor="middle">${v}</text>`;
+    }).join('');
+    const tX = xFor(t), bX = xFor(bestThreshold);
+    thresholdPlot.innerHTML = `
+      <text class="lane" x="12" y="103">0 / No</text>
+      <text class="lane" x="12" y="193">1 / Yes</text>
+      <line class="axis" x1="${left}" y1="${bottom}" x2="${right}" y2="${bottom}"></line>
+      ${ticks}
+      <line class="best-line" x1="${bX}" y1="${top}" x2="${bX}" y2="${bottom}"></line>
+      <text class="best-label" x="${Math.min(right - 44, bX + 5)}" y="${top + 11}">best</text>
+      <line class="split-line" x1="${tX}" y1="${top}" x2="${tX}" y2="${bottom}"></line>
+      ${points}
+      <text class="axis-label" x="${(left + right) / 2}" y="287" text-anchor="middle">连续特征 x</text>
+      <text class="axis-label" x="15" y="${(top + bottom) / 2}" text-anchor="middle" transform="rotate(-90 15 ${(top + bottom) / 2})">类别</text>
+    `;
+  }
+  function renderThreshold(){
+    const t = Number(thresholdRange.value);
+    const m = thresholdMetrics(t);
+    thresholdValue.textContent = t.toFixed(2);
+    thresholdGini.textContent = m.parent.toFixed(4);
+    thresholdGain.textContent = m.gain.toFixed(4);
+    thresholdCounts.textContent = `${m.left.length} / ${m.right.length}`;
+    thresholdError.textContent = `${m.errors} / ${THRESHOLD_POINTS.length}`;
+    thresholdStatus.className = 'threshold-status';
+    if (Math.abs(t - bestThreshold) < 0.005) {
+      thresholdStatus.innerHTML = `<strong>接近最优切点：</strong>t = ${bestThreshold.toFixed(2)} 时 ΔGini = ${bestThresholdGain.toFixed(4)}。左支多数类 ${m.leftMaj}，右支多数类 ${m.rightMaj}，按叶节点多数投票会错分 ${m.errors} 个样本。`;
+    } else if (m.gain < bestThresholdGain - 0.015) {
+      thresholdStatus.classList.add('warning');
+      thresholdStatus.innerHTML = `<strong>当前切分不是最优：</strong>ΔGini = ${m.gain.toFixed(4)}，比最优值 ${bestThresholdGain.toFixed(4)} 低 ${(bestThresholdGain - m.gain).toFixed(4)}。继续拖动，或点击“跳到最优阈值”。`;
+    } else {
+      thresholdStatus.innerHTML = `<strong>切分接近最优：</strong>当前 ΔGini = ${m.gain.toFixed(4)}，样本分配为 ${m.left.length} / ${m.right.length}。`;
+    }
+    renderThresholdPlot(t);
+  }
+  thresholdRange.addEventListener('input', renderThreshold);
+  thresholdBestButton.addEventListener('click', () => {
+    thresholdRange.value = bestThreshold.toFixed(2);
+    renderThreshold();
+  });
+  renderThreshold();
+
+  /* ---------------- experiment 4: depth / overfitting ---------------- */
+  const depthRange = $('#depthRange');
+  const depthValue = $('#depthValue');
+  const trainAcc = $('#trainAcc');
+  const testAcc = $('#testAcc');
+  const accGap = $('#accGap');
+  const leafCount = $('#leafCount');
+  const depthTree = $('#depthTree');
+  const depthTreeScroll = $('#depthTreeScroll');
+  const depthChart = $('#depthChart');
+  const depthStatus = $('#depthStatus');
+  const minLeafRange = $('#minLeafRange');
+  const minLeafValue = $('#minLeafValue');
+  const minLeafMetric = $('#minLeafMetric');
+  let depthResults = [];
+  let bestDepth = 1;
+  function rebuildDepthResults(){
+    const minLeaf = Number(minLeafRange.value);
+    depthResults = [];
+    for (let d = 1; d <= 6; d++) {
+      const tree = buildNumericCart(DEPTH_TRAIN, d, 0, [], minLeaf);
+      const shape = treeShape(tree);
+      depthResults.push({
+        depth: d, tree, shape,
+        train: accuracyNumeric(tree, DEPTH_TRAIN),
+        test: accuracyNumeric(tree, DEPTH_TEST)
+      });
+    }
+    bestDepth = depthResults.reduce((best, r) => r.test > best.test + 1e-12 ? r : best, depthResults[0]).depth;
+    minLeafValue.textContent = String(minLeaf);
+    minLeafMetric.textContent = String(minLeaf);
+  }
+
+  function renderDepthChart(currentDepth){
+    const left = 54, right = 498, top = 18, bottom = 258;
+    const yMin = 0.4, yMax = 1.0;
+    const xFor = (depth) => left + ((depth - 1) / 5) * (right - left);
+    const yFor = (value) => bottom - ((value - yMin) / (yMax - yMin)) * (bottom - top);
+    const grid = [];
+    for (let i = 0; i <= 6; i++) {
+      const value = 0.4 + i * 0.1;
+      const y = yFor(value);
+      grid.push(`<line class="grid" x1="${left}" y1="${y}" x2="${right}" y2="${y}"></line>`);
+      grid.push(`<text class="tick" x="${left - 8}" y="${y + 3}" text-anchor="end">${value.toFixed(1)}</text>`);
+    }
+    for (let d = 1; d <= 6; d++) {
+      const x = xFor(d);
+      grid.push(`<line class="grid" x1="${x}" y1="${top}" x2="${x}" y2="${bottom}"></line>`);
+      grid.push(`<text class="tick" x="${x}" y="${bottom + 18}" text-anchor="middle">${d}</text>`);
+    }
+    const trainPath = depthResults.map(r => `${xFor(r.depth)},${yFor(r.train)}`).join(' L');
+    const testPath = depthResults.map(r => `${xFor(r.depth)},${yFor(r.test)}`).join(' L');
+    const bestX = xFor(bestDepth);
+    const currentX = xFor(currentDepth);
+    const pointsTrain = depthResults.map(r => `<circle class="train-dot" cx="${xFor(r.depth)}" cy="${yFor(r.train)}" r="4"></circle>`).join('');
+    const pointsTest = depthResults.map(r => `<circle class="test-dot" cx="${xFor(r.depth)}" cy="${yFor(r.test)}" r="4"></circle>`).join('');
+    depthChart.innerHTML = `
+      ${grid.join('')}
+      <line class="axis" x1="${left}" y1="${top}" x2="${left}" y2="${bottom}"></line>
+      <line class="axis" x1="${left}" y1="${bottom}" x2="${right}" y2="${bottom}"></line>
+      <line class="best-line" x1="${bestX}" y1="${top}" x2="${bestX}" y2="${bottom}"></line>
+      <text class="best-label" x="${bestX + 5}" y="${top + 12}">图上峰值</text>
+      <line class="current" x1="${currentX}" y1="${top}" x2="${currentX}" y2="${bottom}"></line>
+      <path class="train" d="M${trainPath}"></path>
+      <path class="test" d="M${testPath}"></path>
+      ${pointsTrain}${pointsTest}
+      <text class="axis-label" x="${(left + right) / 2}" y="303" text-anchor="middle">最大深度</text>
+      <text class="axis-label" x="14" y="${(top + bottom) / 2}" text-anchor="middle" transform="rotate(-90 14 ${(top + bottom) / 2})">准确率</text>
+    `;
+  }
+
+  function updateDepth(){
+    const d = Number(depthRange.value);
+    const r = depthResults[d - 1];
+    const best = depthResults[bestDepth - 1];
+    const gap = r.train - r.test;
+    depthValue.textContent = String(d);
+    trainAcc.textContent = (r.train * 100).toFixed(1) + '%';
+    testAcc.textContent = (r.test * 100).toFixed(1) + '%';
+    accGap.textContent = (gap * 100).toFixed(1) + '%';
+    leafCount.textContent = String(r.shape.leaves);
+    depthStatus.className = 'status-line';
+    if (d === bestDepth) {
+      depthStatus.innerHTML = `<strong>当前是图上测试峰值：</strong>训练准确率 ${(r.train * 100).toFixed(1)}%，测试准确率 ${(r.test * 100).toFixed(1)}%。继续加深前，先比较训练与测试的差距。`;
+    } else if (d < bestDepth) {
+      if (r.train < best.train - 0.015) {
+        depthStatus.classList.add('balanced');
+        depthStatus.innerHTML = `<strong>欠拟合区：</strong>树的复杂度还不足以表达数据中的主要结构。训练和测试准确率都偏低时，继续加深可能仍有收益。`;
+      } else {
+        depthStatus.innerHTML = `<strong>复杂度偏低的区域：</strong>当前测试准确率 ${(r.test * 100).toFixed(1)}%，尚未达到图上峰值 ${(best.test * 100).toFixed(1)}%。`;
+      }
+    } else if (r.test < best.test - 0.005) {
+      depthStatus.classList.add('warning');
+      depthStatus.innerHTML = `<strong>过拟合区：</strong>训练准确率上升到 ${(r.train * 100).toFixed(1)}%，但测试准确率回落到 ${(r.test * 100).toFixed(1)}%（间隔 ${(gap * 100).toFixed(1)} 个百分点）。树开始拟合训练集中的噪声。`;
+    } else {
+      depthStatus.classList.add('balanced');
+      depthStatus.innerHTML = `<strong>复杂度增加的边际收益有限：</strong>训练准确率 ${(r.train * 100).toFixed(1)}%，测试准确率 ${(r.test * 100).toFixed(1)}%，与图上峰值相差不超过 0.5 个百分点。`;
+    }
+    renderGenericTree(depthTree, r.tree, {
+      minWidth: 900, nodeWidth: 96, nodeHeight: 44, xGap: 108, yGap: 74, padding: 30, showEdgeLabels: false
+    });
+    renderDepthChart(d);
+    requestAnimationFrame(() => {
+      depthTreeScroll.scrollLeft = Math.max(0, (depthTree.clientWidth - depthTreeScroll.clientWidth) / 2);
+    });
+  }
+  depthRange.addEventListener('input', updateDepth);
+  minLeafRange.addEventListener('input', () => { rebuildDepthResults(); updateDepth(); });
+  rebuildDepthResults();
+  updateDepth();
+  /* ---------------- bonus case: AI detective tree ---------------- */
+  const AI_MODELS = {
+    codex: {
+      name: 'Codex', avatar: '</>', kicker: 'OpenAI 编码代理入口；本页讲解者。',
+      path: '官方入口 OpenAI → 编码代理 → Codex',
+      note: 'Codex 强调编码代理与工作台体验；它与 GPT 不是互斥的模型类别，底层仍可能使用 OpenAI 的模型。'
+    },
+    gpt: {
+      name: 'GPT / ChatGPT', avatar: 'G', kicker: 'OpenAI 的模型家族 / 助手产品入口。',
+      path: '官方入口 OpenAI → 通用助手 → GPT / ChatGPT',
+      note: 'GPT 是模型家族名称，ChatGPT 是面向用户的助手产品；具体底层版本应以官方文档与产品信息为准。'
+    },
+    claude: {
+      name: 'Claude', avatar: 'C', kicker: 'Anthropic 的助手与模型家族。',
+      path: '官方入口 Anthropic → Claude',
+      note: '这是一个产品级识别路径，不代表能从回答风格推断底层模型或具体版本。'
+    },
+    deepseek: {
+      name: 'DeepSeek', avatar: 'D', kicker: 'DeepSeek 的模型与助手家族。',
+      path: '官方入口 DeepSeek → DeepSeek',
+      note: '这是一个产品级识别路径；真实系统中可能存在路由、工具调用与多个模型版本。'
+    }
+  };
+  const AI_BRAND_ICONS = {
+    claude: `<svg viewBox="0 0 24 24" aria-hidden="true"><path fill="currentColor" d="m4.7144 15.9555 4.7174-2.6471.079-.2307-.079-.1275h-.2307l-.7893-.0486-2.6956-.0729-2.3375-.0971-2.2646-.1214-.5707-.1215-.5343-.7042.0546-.3522.4797-.3218.686.0608 1.5179.1032 2.2767.1578 1.6514.0972 2.4468.255h.3886l.0546-.1579-.1336-.0971-.1032-.0972L6.973 9.8356l-2.55-1.6879-1.3356-.9714-.7225-.4918-.3643-.4614-.1578-1.0078.6557-.7225.8803.0607.2246.0607.8925.686 1.9064 1.4754 2.4893 1.8336.3643.3035.1457-.1032.0182-.0728-.164-.2733-1.3539-2.4467-1.445-2.4893-.6435-1.032-.17-.6194c-.0607-.255-.1032-.4674-.1032-.7285L6.287.1335 6.6997 0l.9957.1336.419.3642.6192 1.4147 1.0018 2.2282 1.5543 3.0296.4553.8985.2429.8318.091.255h.1579v-.1457l.1275-1.706.2368-2.0947.2307-2.6957.0789-.7589.3764-.9107.7468-.4918.5828.2793.4797.686-.0668.4433-.2853 1.8517-.5586 2.9021-.3643 1.9429h.2125l.2429-.2429.9835-1.3053 1.6514-2.0643.7286-.8196.85-.9046.5464-.4311h1.0321l.759 1.1293-.34 1.1657-1.0625 1.3478-.8804 1.1414-1.2628 1.7-.7893 1.36.0729.1093.1882-.0183 2.8535-.607 1.5421-.2794 1.8396-.3157.8318.3886.091.3946-.3278.8075-1.967.4857-2.3072.4614-3.4364.8136-.0425.0304.0486.0607 1.5482.1457.6618.0364h1.621l3.0175.2247.7892.522.4736.6376-.079.4857-1.2142.6193-1.6393-.3886-3.825-.9107-1.3113-.3279h-.1822v.1093l1.0929 1.0686 2.0035 1.8092 2.5075 2.3314.1275.5768-.3218.4554-.34-.0486-2.2039-1.6575-.85-.7468-1.9246-1.621h-.1275v.17l.4432.6496 2.3436 3.5214.1214 1.0807-.17.3521-.6071.2125-.6679-.1214-1.3721-1.9246L14.38 17.959l-1.1414-1.9428-.1397.079-.674 7.2552-.3156.3703-.7286.2793-.6071-.4614-.3218-.7468.3218-1.4753.3886-1.9246.3157-1.53.2853-1.9004.17-.6314-.0121-.0425-.1397.0182-1.4328 1.9672-2.1796 2.9446-1.7243 1.8456-.4128.164-.7164-.3704.0667-.6618.4008-.5889 2.386-3.0357 1.4389-1.882.929-1.0868-.0062-.1579h-.0546l-6.3385 4.1164-1.1293.1457-.4857-.4554.0608-.7467.2307-.2429 1.9064-1.3114Z"/></svg>`,
+    codex: `<svg viewBox="0 0 24 24" aria-hidden="true"><path fill="currentColor" d="M22.2819 9.8211a5.9847 5.9847 0 0 0-.5157-4.9108 6.0462 6.0462 0 0 0-6.5098-2.9A6.0651 6.0651 0 0 0 4.9807 4.1818a5.9847 5.9847 0 0 0-3.9977 2.9 6.0462 6.0462 0 0 0 .7427 7.0966 5.98 5.98 0 0 0 .511 4.9107 6.051 6.051 0 0 0 6.5146 2.9001A5.9847 5.9847 0 0 0 13.2599 24a6.0557 6.0557 0 0 0 5.7718-4.2058 5.9894 5.9894 0 0 0 3.9977-2.9001 6.0557 6.0557 0 0 0-.7475-7.0729zm-9.022 12.6081a4.4755 4.4755 0 0 1-2.8764-1.0408l.1419-.0804 4.7783-2.7582a.7948.7948 0 0 0 .3927-.6813v-6.7369l2.02 1.1686a.071.071 0 0 1 .038.052v5.5826a4.504 4.504 0 0 1-4.4945 4.4944zm-9.6607-4.1254a4.4708 4.4708 0 0 1-.5346-3.0137l.142.0852 4.783 2.7582a.7712.7712 0 0 0 .7806 0l5.8428-3.3685v2.3324a.0804.0804 0 0 1-.0332.0615L9.74 19.9502a4.4992 4.4992 0 0 1-6.1408-1.6464zM2.3408 7.8956a4.485 4.485 0 0 1 2.3655-1.9728V11.6a.7664.7664 0 0 0 .3879.6765l5.8144 3.3543-2.0201 1.1685a.0757.0757 0 0 1-.071 0l-4.8303-2.7865A4.504 4.504 0 0 1 2.3408 7.872zm16.5963 3.8558L13.1038 8.364 15.1192 7.2a.0757.0757 0 0 1 .071 0l4.8303 2.7913a4.4944 4.4944 0 0 1-.6765 8.1042v-5.6772a.79.79 0 0 0-.407-.667zm2.0107-3.0231l-.142-.0852-4.7735-2.7818a.7759.7759 0 0 0-.7854 0L9.409 9.2297V6.8974a.0662.0662 0 0 1 .0284-.0615l4.8303-2.7866a4.4992 4.4992 0 0 1 6.6802 4.66zM8.3065 12.863l-2.02-1.1638a.0804.0804 0 0 1-.038-.0567V6.0742a4.4992 4.4992 0 0 1 7.3757-3.4537l-.142.0805L8.704 5.459a.7948.7948 0 0 0-.3927.6813zm1.0976-2.3654l2.602-1.4998 2.6069 1.4998v2.9994l-2.5974 1.4997-2.6067-1.4997Z"/></svg>`,
+    gpt: `<svg viewBox="0 0 24 24" aria-hidden="true"><path fill="currentColor" d="M22.2819 9.8211a5.9847 5.9847 0 0 0-.5157-4.9108 6.0462 6.0462 0 0 0-6.5098-2.9A6.0651 6.0651 0 0 0 4.9807 4.1818a5.9847 5.9847 0 0 0-3.9977 2.9 6.0462 6.0462 0 0 0 .7427 7.0966 5.98 5.98 0 0 0 .511 4.9107 6.051 6.051 0 0 0 6.5146 2.9001A5.9847 5.9847 0 0 0 13.2599 24a6.0557 6.0557 0 0 0 5.7718-4.2058 5.9894 5.9894 0 0 0 3.9977-2.9001 6.0557 6.0557 0 0 0-.7475-7.0729zm-9.022 12.6081a4.4755 4.4755 0 0 1-2.8764-1.0408l.1419-.0804 4.7783-2.7582a.7948.7948 0 0 0 .3927-.6813v-6.7369l2.02 1.1686a.071.071 0 0 1 .038.052v5.5826a4.504 4.504 0 0 1-4.4945 4.4944zm-9.6607-4.1254a4.4708 4.4708 0 0 1-.5346-3.0137l.142.0852 4.783 2.7582a.7712.7712 0 0 0 .7806 0l5.8428-3.3685v2.3324a.0804.0804 0 0 1-.0332.0615L9.74 19.9502a4.4992 4.4992 0 0 1-6.1408-1.6464zM2.3408 7.8956a4.485 4.485 0 0 1 2.3655-1.9728V11.6a.7664.7664 0 0 0 .3879.6765l5.8144 3.3543-2.0201 1.1685a.0757.0757 0 0 1-.071 0l-4.8303-2.7865A4.504 4.504 0 0 1 2.3408 7.872zm16.5963 3.8558L13.1038 8.364 15.1192 7.2a.0757.0757 0 0 1 .071 0l4.8303 2.7913a4.4944 4.4944 0 0 1-.6765 8.1042v-5.6772a.79.79 0 0 0-.407-.667zm2.0107-3.0231l-.142-.0852-4.7735-2.7818a.7759.7759 0 0 0-.7854 0L9.409 9.2297V6.8974a.0662.0662 0 0 1 .0284-.0615l4.8303-2.7866a4.4992 4.4992 0 0 1 6.6802 4.66zM8.3065 12.863l-2.02-1.1638a.0804.0804 0 0 1-.038-.0567V6.0742a4.4992 4.4992 0 0 1 7.3757-3.4537l-.142.0805L8.704 5.459a.7948.7948 0 0 0-.3927.6813zm1.0976-2.3654l2.602-1.4998 2.6069 1.4998v2.9994l-2.5974 1.4997-2.6067-1.4997Z"/></svg>`,
+    deepseek: `<svg viewBox="0 0 24 24" aria-hidden="true"><path fill="currentColor" d="M23.748 4.651c-.254-.124-.364.113-.512.233-.051.04-.094.09-.137.137-.372.397-.806.657-1.373.626-.829-.046-1.537.214-2.163.848-.133-.782-.575-1.248-1.247-1.548-.352-.155-.708-.311-.955-.65-.172-.24-.219-.509-.305-.774-.055-.16-.11-.323-.293-.35-.2-.031-.278.136-.356.276-.313.572-.434 1.202-.422 1.84.027 1.436.633 2.58 1.838 3.393.137.094.172.187.129.323-.082.28-.18.553-.266.833-.055.179-.137.218-.328.14a5.5 5.5 0 0 1-1.737-1.179c-.857-.828-1.631-1.743-2.597-2.46a12 12 0 0 0-.689-.47c-.985-.957.13-1.743.387-1.836.27-.098.094-.433-.778-.428-.872.003-1.67.295-2.687.685a3 3 0 0 1-.465.136 9.6 9.6 0 0 0-2.883-.101c-1.885.21-3.39 1.1-4.497 2.622C.082 8.776-.231 10.854.152 13.02c.403 2.284 1.568 4.175 3.36 5.653 1.857 1.533 3.997 2.284 6.438 2.14 1.482-.085 3.132-.284 4.994-1.86.47.234.962.328 1.78.398.629.058 1.235-.031 1.705-.129.735-.155.684-.836.418-.961-2.155-1.004-1.682-.595-2.112-.926 1.095-1.295 2.768-3.598 3.284-6.733.05-.346.115-.834.108-1.114-.004-.171.035-.238.23-.257a4.2 4.2 0 0 0 1.545-.475c1.397-.763 1.96-2.016 2.093-3.517.02-.23-.004-.467-.247-.588M11.58 18.168c-2.088-1.642-3.101-2.183-3.52-2.16-.39.024-.32.472-.234.763.09.288.207.487.371.74.114.167.192.416-.113.603-.673.416-1.842-.14-1.897-.168-1.361-.801-2.5-1.86-3.301-3.306-.775-1.393-1.225-2.888-1.299-4.482-.02-.385.094-.522.477-.592a4.7 4.7 0 0 1 1.53-.038c2.131.311 3.946 1.264 5.467 2.774.868.86 1.525 1.887 2.202 2.89.72 1.066 1.494 2.082 2.48 2.915.348.291.626.513.892.677-.802.09-2.14.109-3.055-.615zm1.001-6.44a.306.306 0 0 1 .415-.287.3.3 0 0 1 .113.074.3.3 0 0 1 .086.214c0 .17-.136.307-.308.307a.303.303 0 0 1-.306-.307m3.11 1.596c-.2.081-.4.151-.591.16a1.25 1.25 0 0 1-.798-.254c-.274-.23-.47-.358-.551-.758a1.7 1.7 0 0 1 .015-.588c.07-.327-.007-.537-.238-.727-.188-.156-.426-.199-.689-.199a.6.6 0 0 1-.254-.078.253.253 0 0 1-.114-.358 1 1 0 0 1 .192-.21c.356-.202.767-.136 1.146.016.352.144.618.408 1.001.782.392.451.462.576.685.915.176.264.336.536.446.848.066.194-.02.353-.25.45"/></svg>`
+  };
+  $$('[data-brand-icon]').forEach(el => {
+    const key = el.getAttribute('data-brand-icon');
+    el.innerHTML = AI_BRAND_ICONS[key] || '';
+    el.classList.add('brand-' + key);
+  });
+  const AI_NODES = {
+    root: { x: 360, y: 32, w: 152, h: 44, main: '官方入口？', sub: 'Q1' },
+    openai: { x: 150, y: 132, w: 92, h: 38, main: 'OpenAI', sub: '生态' },
+    anthropic: { x: 360, y: 132, w: 104, h: 38, main: 'Anthropic', sub: '生态' },
+    deepseek: { x: 570, y: 132, w: 104, h: 38, main: 'DeepSeek', sub: '生态' },
+    q2: { x: 150, y: 234, w: 136, h: 42, main: '编码代理？', sub: 'Q2' },
+    claude: { x: 360, y: 234, w: 110, h: 42, main: 'Claude', sub: 'Anthropic' },
+    deepseekResult: { x: 570, y: 234, w: 110, h: 42, main: 'DeepSeek', sub: 'DeepSeek' },
+    codex: { x: 78, y: 348, w: 116, h: 42, main: 'Codex', sub: 'OpenAI' },
+    gpt: { x: 224, y: 348, w: 140, h: 42, main: 'GPT / ChatGPT', sub: 'OpenAI' }
+  };
+  const AI_EDGES = [
+    { from: 'root', to: 'openai', label: 'OpenAI' },
+    { from: 'root', to: 'anthropic', label: 'Anthropic' },
+    { from: 'root', to: 'deepseek', label: 'DeepSeek' },
+    { from: 'openai', to: 'q2', label: '' },
+    { from: 'q2', to: 'codex', label: '是' },
+    { from: 'q2', to: 'gpt', label: '否' },
+    { from: 'anthropic', to: 'claude', label: '' },
+    { from: 'deepseek', to: 'deepseekResult', label: '' }
+  ];
+  const aiTree = $('#aiTree');
+  const aiTreeShell = $('#aiTreeShell');
+  const aiLab = $('#aiLab');
+  const aiResult = $('#aiResult');
+  const aiAvatar = $('#aiAvatar');
+  const aiName = $('#aiName');
+  const aiTagline = $('#aiTagline');
+  const aiPath = $('#aiPath');
+  const aiExplainer = $('#aiExplainer');
+  const aiTypeGroup = $('#aiTypeGroup');
+  const aiDemo = $('#aiDemo');
+  const aiReset = $('#aiReset');
+  let aiState = { origin: 'openai', type: 'agent' };
+  let aiDemoing = false;
+  let aiDemoTimer = null;
+  let aiDemoIndex = 0;
+  const aiDemoSequence = [
+    { origin: 'openai', type: 'agent' },
+    { origin: 'anthropic', type: 'agent' },
+    { origin: 'openai', type: 'general' },
+    { origin: 'deepseek', type: 'agent' }
+  ];
+
+  function aiResolve() {
+    if (aiState.origin === 'anthropic') return 'claude';
+    if (aiState.origin === 'deepseek') return 'deepseek';
+    return aiState.type === 'agent' ? 'codex' : 'gpt';
+  }
+  function aiActivePath(result) {
+    const nodes = new Set(['root', aiState.origin]);
+    const edges = new Set([`root>${aiState.origin}`]);
+    if (aiState.origin === 'openai') {
+      nodes.add('q2');
+      nodes.add(result);
+      edges.add('openai>q2');
+      edges.add(`q2>${result}`);
+    } else {
+      const resultNode = aiState.origin === 'anthropic' ? 'claude' : 'deepseekResult';
+      nodes.add(resultNode);
+      edges.add(`${aiState.origin}>${resultNode}`);
+    }
+    return { nodes, edges };
+  }
+  function renderAITree(result) {
+    const active = aiActivePath(result);
+    const edgeMarkup = AI_EDGES.map(edge => {
+      const a = AI_NODES[edge.from], b = AI_NODES[edge.to];
+      const key = `${edge.from}>${edge.to}`;
+      const path = edgePath(a.x, a.y + a.h, b.x, b.y);
+      const label = edge.label ? edgeLabelMarkup(a.x, a.y + a.h, b.x, b.y, edge.label) : '';
+      return `<path class="ai-edge ${active.edges.has(key) ? 'active' : ''}" d="${path}"></path>${label}`;
+    }).join('');
+    const nodeMarkup = Object.entries(AI_NODES).map(([key, n]) => {
+      const isActive = active.nodes.has(key);
+      const isResult = ['claude', 'deepseekResult', 'codex', 'gpt'].includes(key);
+      return `<g class="ai-node ${isActive ? 'active' : ''} ${isResult ? 'result' : ''}">
+        <rect x="${n.x - n.w / 2}" y="${n.y}" width="${n.w}" height="${n.h}" rx="1"></rect>
+        <text x="${n.x}" y="${n.y + 17}">${esc(n.main)}</text>
+        <text class="sub" x="${n.x}" y="${n.y + 30}">${esc(n.sub)}</text>
+      </g>`;
+    }).join('');
+    aiTree.innerHTML = edgeMarkup + nodeMarkup;
+    requestAnimationFrame(centerAITree);
+  }
+  function centerAITree() {
+    const result = aiResolve();
+    const active = aiActivePath(result);
+    const scale = aiTree.clientWidth / 720;
+    const xs = Array.from(active.nodes).map(key => AI_NODES[key].x * scale);
+    const minX = Math.min(...xs);
+    const maxX = Math.max(...xs);
+    const target = (minX + maxX) / 2 - aiTreeShell.clientWidth / 2;
+    aiTreeShell.scrollLeft = Math.max(0, Math.min(target, aiTreeShell.scrollWidth - aiTreeShell.clientWidth));
+  }
+  function renderAI(animate = false) {
+    const result = aiResolve();
+    const model = AI_MODELS[result];
+    $$('[data-ai-origin]').forEach(btn => {
+      const on = btn.getAttribute('data-ai-origin') === aiState.origin;
+      btn.classList.toggle('active', on);
+      btn.setAttribute('aria-pressed', String(on));
+    });
+    $$('[data-ai-type]').forEach(btn => {
+      const on = aiState.origin === 'openai' && btn.getAttribute('data-ai-type') === aiState.type;
+      btn.classList.toggle('active', on);
+      btn.setAttribute('aria-pressed', String(on));
+      btn.disabled = aiState.origin !== 'openai';
+    });
+    aiTypeGroup.classList.toggle('is-muted', aiState.origin !== 'openai');
+    renderAITree(result);
+    aiAvatar.innerHTML = AI_BRAND_ICONS[result];
+    aiAvatar.className = `ai-avatar ${result}`;
+    $$('[data-ai-brand]').forEach(btn => btn.classList.toggle('active', btn.getAttribute('data-ai-brand') === result));
+    aiName.textContent = model.name;
+    aiTagline.textContent = model.kicker;
+    aiPath.textContent = model.path;
+    aiExplainer.textContent = model.note;
+    if (animate) {
+      aiResult.classList.remove('animate');
+      void aiResult.offsetWidth;
+      aiResult.classList.add('animate');
+    }
+  }
+  function stopAIDemo() {
+    aiDemoing = false;
+    if (aiDemoTimer) clearInterval(aiDemoTimer);
+    aiDemoTimer = null;
+    aiLab.classList.remove('demoing');
+    aiDemo.textContent = '自动演示';
+    aiDemo.setAttribute('aria-pressed', 'false');
+  }
+  function demoStep() {
+    aiState = { ...aiDemoSequence[aiDemoIndex % aiDemoSequence.length] };
+    aiDemoIndex += 1;
+    renderAI(true);
+  }
+  function toggleAIDemo() {
+    if (aiDemoing) { stopAIDemo(); return; }
+    aiDemoing = true;
+    aiDemoIndex = 0;
+    aiLab.classList.add('demoing');
+    aiDemo.textContent = '暂停演示';
+    aiDemo.setAttribute('aria-pressed', 'true');
+    demoStep();
+    aiDemoTimer = setInterval(demoStep, 2200);
+  }
+  $$('[data-ai-origin]').forEach(btn => btn.addEventListener('click', () => {
+    stopAIDemo();
+    aiState = { origin: btn.getAttribute('data-ai-origin'), type: aiState.type };
+    renderAI(true);
+  }));
+  $$('[data-ai-type]').forEach(btn => btn.addEventListener('click', () => {
+    if (aiState.origin !== 'openai') return;
+    stopAIDemo();
+    aiState = { origin: 'openai', type: btn.getAttribute('data-ai-type') };
+    renderAI(true);
+  }));
+  const aiBrandState = {
+    claude: { origin: 'anthropic', type: 'agent' },
+    codex: { origin: 'openai', type: 'agent' },
+    gpt: { origin: 'openai', type: 'general' },
+    deepseek: { origin: 'deepseek', type: 'agent' }
+  };
+  $$('[data-ai-brand]').forEach(btn => btn.addEventListener('click', () => {
+    stopAIDemo();
+    aiState = { ...aiBrandState[btn.getAttribute('data-ai-brand')] };
+    renderAI(true);
+  }));
+  aiDemo.addEventListener('click', toggleAIDemo);
+  aiReset.addEventListener('click', () => {
+    stopAIDemo();
+    aiState = { origin: 'openai', type: 'agent' };
+    renderAI(true);
+  });
+  window.addEventListener('resize', () => requestAnimationFrame(centerAITree));
+  renderAI();
+
+  /* ---------------- copy code ---------------- */
+  const copyCode = $('#copyCode');
+  async function copyText(text){
+    try {
+      if (navigator.clipboard && window.isSecureContext) {
+        await navigator.clipboard.writeText(text);
+        return true;
+      }
+    } catch (err) { /* fall through */ }
+    try {
+      const ta = document.createElement('textarea');
+      ta.value = text;
+      ta.setAttribute('readonly', '');
+      ta.style.position = 'fixed';
+      ta.style.left = '-9999px';
+      ta.style.top = '0';
+      document.body.appendChild(ta);
+      ta.select();
+      const ok = document.execCommand('copy');
+      ta.remove();
+      return ok;
+    } catch (err) {
+      return false;
+    }
+  }
+  copyCode.addEventListener('click', async () => {
+    const text = $('#irisCode').innerText;
+    const ok = await copyText(text);
+    copyCode.textContent = ok ? '已复制 ✓' : '复制失败';
+    setTimeout(() => { copyCode.textContent = '复制代码'; }, 1600);
+  });
+
+  /* ---------------- fixed pipeline / reading progress ---------------- */
+  const stageSections = $$('section.stage[data-stage]');
+  const pipelineLinks = $$('.pipeline a');
+  const chapterLinks = $$('.chapter-nav a');
+  const readingProgress = $('#readingProgress');
+  let scrollTicking = false;
+  function updatePipeline(){
+    const marker = window.scrollY + window.innerHeight * 0.34;
+    let active = 0;
+    stageSections.forEach((section, i) => {
+      if (section.offsetTop <= marker) active = i;
+    });
+    pipelineLinks.forEach((link, i) => {
+      link.classList.toggle('active', i === active);
+      link.classList.toggle('passed', i < active);
+      if (i === active) link.setAttribute('aria-current', 'step');
+      else link.removeAttribute('aria-current');
+    });
+    chapterLinks.forEach((link, i) => {
+      link.classList.toggle('active', i === active);
+      if (i === active) link.setAttribute('aria-current', 'step');
+      else link.removeAttribute('aria-current');
+    });
+    readingProgress.style.width = `${((active + 1) / pipelineLinks.length) * 100}%`;
+    scrollTicking = false;
+  }
+  function requestPipelineUpdate(){
+    if (!scrollTicking) {
+      scrollTicking = true;
+      requestAnimationFrame(updatePipeline);
+    }
+  }
+  window.addEventListener('scroll', requestPipelineUpdate, { passive: true });
+  window.addEventListener('resize', requestPipelineUpdate);
+  updatePipeline();
+
+  /* ---------------- initial formula pass ---------------- */
+  renderAllTeX();
+})();
+
+</script>
+</body>
+</html>
